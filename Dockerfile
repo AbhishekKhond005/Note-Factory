@@ -8,12 +8,13 @@ RUN apk add --no-cache git
 
 # Copy go module files first for layer caching
 COPY go.mod go.sum* ./
-RUN go mod download
+RUN go mod download || true
 
 # Copy source code
 COPY . .
 
-# Build
+# Generate go.sum if missing and Build
+RUN go mod tidy
 RUN CGO_ENABLED=0 GOOS=linux go build -o /note-factory .
 
 # ── Stage 2: Runtime ────────────────────────────────────────────────
@@ -45,4 +46,4 @@ HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
   CMD curl -f http://localhost:8080/api/health || exit 1
 
 ENTRYPOINT ["/app/note-factory"]
-CMD ["-port", "8080", "-parallel", "4"]
+CMD ["-port", "8080", "-parallel", "1"]

@@ -80,7 +80,7 @@ func parseFlags() *config {
 	flag.StringVar(&cfg.roadmapDir, "roadmaps", "roadmaps", "Directory for roadmap files")
 	flag.StringVar(&cfg.model, "model", "", "OpenCode model (e.g. 'anthropic/claude-sonnet-4-20250514')")
 	flag.StringVar(&cfg.opencode, "opencode", "", "Path to opencode binary (default: PATH lookup)")
-	flag.IntVar(&cfg.parallel, "parallel", 4, "Max parallel opencode processes (default: 4)")
+	flag.IntVar(&cfg.parallel, "parallel", 1, "Max parallel opencode processes (default: 1)")
 	flag.BoolVar(&cfg.useDocker, "use-docker", false, "Force opencode to run in Docker for all tasks (quota bypass)")
 	flag.StringVar(&cfg.proxy, "proxy", "", "HTTP proxy for Docker containers (e.g., http://proxy:port)")
 
