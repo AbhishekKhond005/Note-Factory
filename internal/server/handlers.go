@@ -36,6 +36,11 @@ type generateRequest struct {
 	Prompt         string `json:"prompt,omitempty"`         // optional user priority guidance
 }
 
+type overviewRequest struct {
+	Topic  string `json:"topic"`
+	Prompt string `json:"prompt,omitempty"`
+}
+
 type errorResponse struct {
 	Error   string `json:"error"`
 	Details string `json:"details,omitempty"`
@@ -299,6 +304,105 @@ func (s *Server) handleGenerate(w http.ResponseWriter, r *http.Request) {
 	go s.runGeneration(job.ID, rm.Title, chapter, req.Prompt)
 
 	respondJSON(w, http.StatusAccepted, job)
+}
+
+// POST /api/generate/overview — quick overview notes for a topic (single file)
+func (s *Server) handleGenerateOverview(w http.ResponseWriter, r *http.Request) {
+	var req overviewRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "Invalid JSON body")
+		return
+	}
+
+	req.Topic = strings.TrimSpace(req.Topic)
+	if req.Topic == "" {
+		respondError(w, http.StatusBadRequest, "Topic is required")
+		return
+	}
+
+	// Job with a single "overview" section so the dashboard works as usual
+	job := s.jobManager.Create(req.Topic, req.Topic, []types.SubChapter{{Name: "overview"}})
+
+	go s.runOverviewGeneration(job.ID, req.Topic, req.Prompt)
+
+	respondJSON(w, http.StatusAccepted, job)
+}
+
+// runOverviewGeneration generates a single quick-overview notes file for a topic.
+func (s *Server) runOverviewGeneration(jobID, topic, userPrompt string) {
+	s.jobManager.UpdateJobStatus(jobID, types.JobStatusRunning)
+	s.hub.Broadcast(types.ProgressEvent{
+		JobID:  jobID,
+		Type:   "status",
+		Status: types.JobStatusRunning,
+	})
+
+	outDir := filepath.Join(s.notesDir, sanitizeFilename(topic))
+	if err := os.MkdirAll(outDir, 0755); err != nil {
+		s.jobManager.SetError(jobID, fmt.Sprintf("creating output directory: %v", err))
+		s.hub.Broadcast(types.ProgressEvent{
+			JobID:   jobID,
+			Type:    "complete",
+			Status:  types.JobStatusFailed,
+			Message: err.Error(),
+		})
+		return
+	}
+
+	cfg := &agent.Config{
+		OutputDir:    outDir,
+		Format:       "md",
+		OpencodePath: s.agentConfig.OpencodePath,
+		Model:        s.agentConfig.Model,
+		MaxParallel:  s.agentConfig.MaxParallel,
+	}
+
+	s.jobManager.UpdateSubChapter(jobID, "overview", types.JobStatusRunning, "generating overview", "", "")
+	s.hub.Broadcast(types.ProgressEvent{
+		JobID:      jobID,
+		Type:       "progress",
+		SubChapter: "overview",
+		Status:     types.JobStatusRunning,
+		Step:       "generating overview",
+	})
+
+	content, err := agent.GenerateOverview(cfg, topic, userPrompt)
+	if err != nil {
+		s.jobManager.UpdateSubChapter(jobID, "overview", types.JobStatusFailed, "", err.Error(), "")
+		s.jobManager.SetError(jobID, err.Error())
+		s.hub.Broadcast(types.ProgressEvent{
+			JobID:      jobID,
+			Type:       "error",
+			SubChapter: "overview",
+			Status:     types.JobStatusFailed,
+			Message:    err.Error(),
+		})
+		return
+	}
+
+	// Write the single notes file
+	outputPath := filepath.Join(outDir, "01-overview.md")
+	if err := os.WriteFile(outputPath, []byte(content), 0644); err != nil {
+		s.jobManager.SetError(jobID, fmt.Sprintf("writing overview file: %v", err))
+		return
+	}
+
+	s.jobManager.UpdateSubChapter(jobID, "overview", types.JobStatusComplete, "done", "", outputPath)
+	s.jobManager.SetMergedFile(jobID, outputPath)
+	s.jobManager.UpdateJobStatus(jobID, types.JobStatusComplete)
+	s.hub.Broadcast(types.ProgressEvent{
+		JobID:      jobID,
+		Type:       "complete",
+		SubChapter: "overview",
+		Status:     types.JobStatusComplete,
+		Step:       "done",
+	})
+	s.hub.Broadcast(types.ProgressEvent{
+		JobID:   jobID,
+		Type:    "complete",
+		Status:  types.JobStatusComplete,
+		Message: "Quick overview generated",
+	})
 }
 
 // GET /api/jobs — list all jobs

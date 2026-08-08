@@ -87,6 +87,52 @@ func appendUserPrompt(prompt, userPrompt string) string {
 	return prompt + fmt.Sprintf("\n\nPRIORITY USER GUIDANCE (this has the highest priority; follow it strictly wherever it conflicts with the instructions above):\n%s", userPrompt)
 }
 
+// overviewSystemPrompt is the hardcoded quick-overview prompt. It asks for
+// SHORT, EXTREMELY SIMPLE notes covering what the domain is about — not the
+// workings or in-depth concepts — so the result is typically a single file.
+const overviewSystemPrompt = `You are an expert educator creating a quick overview of a domain for a complete beginner.
+
+Write SHORT and EXTREMELY SIMPLE notes that cover what the domain "{{TOPIC}}" is about: what it is, why people use it, and the main high-level areas it touches. This is a bird's-eye overview, NOT a deep dive.
+
+Rules:
+- Keep the whole document short (about 300–600 words).
+- Use plain, beginner-friendly language. If jargon is needed, explain it in one short phrase.
+- Cover ONLY: what the domain is, what it is used for / why it matters, and the main areas or subfields it includes.
+- Do NOT explain inner workings, internals, or in-depth concepts.
+- Do NOT include code examples, exercises, or implementation details.
+- Structure the notes with a title, a few short section headings, and short bullet points.
+
+Return the COMPLETE markdown notes directly in your response. Do NOT write any files. Do NOT include any extra text, greetings, or commentary.`
+
+// GenerateOverview runs a single opencode call with the hardcoded quick-overview
+// prompt for a topic. The optional userPrompt is appended as priority guidance.
+// Returns the markdown notes content (typically one short notes file).
+func GenerateOverview(cfg *Config, topic, userPrompt string) (string, error) {
+	workDir, err := os.MkdirTemp("", "note-factory-*")
+	if err != nil {
+		return "", fmt.Errorf("creating temp work dir: %w", err)
+	}
+	defer os.RemoveAll(workDir)
+
+	prompt := strings.ReplaceAll(overviewSystemPrompt, "{{TOPIC}}", topic)
+	prompt = appendUserPrompt(prompt, userPrompt)
+
+	fmt.Printf("  Generating quick overview for %q...\n", topic)
+	out, err := runOpencode(cfg, workDir, prompt)
+	if err != nil {
+		return "", fmt.Errorf("generating overview: %w", err)
+	}
+
+	content := cleanOutput(out)
+	if isSummaryResponse(content) {
+		fmt.Printf("  Detected summary response, looking for files in workdir...\n")
+		if saved := findAndReadOutputFile(workDir); saved != "" {
+			content = saved
+		}
+	}
+	return content, nil
+}
+
 // GenerateNotesForSubChapter runs the agentic flow for a single sub-chapter.
 // Step 1: Ask opencode to generate a prompt/outline for the topic.
 // Step 2: Feed that prompt back to generate comprehensive notes.

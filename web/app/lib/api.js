@@ -77,6 +77,13 @@ class ApiClient {
     });
   }
 
+  async generateOverview(topic, prompt) {
+    return this.request("/api/generate/overview", {
+      method: "POST",
+      body: JSON.stringify({ topic, prompt }),
+    });
+  }
+
   async getJob(jobId) {
     return this.request(`/api/jobs/${jobId}`);
   }

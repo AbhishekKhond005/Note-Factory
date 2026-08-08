@@ -109,6 +109,7 @@ func (s *Server) setupRoutes() {
 
 		// Job operations
 		r.Post("/generate", s.handleGenerate)
+		r.Post("/generate/overview", s.handleGenerateOverview)
 		r.Get("/jobs", s.handleListJobs)
 		r.Get("/jobs/{jobID}", s.handleGetJob)
 		r.Post("/jobs/{jobID}/cancel", s.handleCancelJob)

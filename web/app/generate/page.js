@@ -54,6 +54,21 @@ export default function GeneratePage() {
     }
   };
 
+  const handleGenerateOverview = async () => {
+    if (!topic.trim()) {
+      setError("Please enter a topic for the quick overview.");
+      return;
+    }
+    setError("");
+    try {
+      const job = await api.generateOverview(topic.trim(), topicPrompt);
+      setCurrentJob(job);
+      setStep(3);
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
   const handleParseText = async () => {
     if (!roadmapContent.trim()) {
       setError("Please enter a roadmap.");
@@ -173,7 +188,17 @@ export default function GeneratePage() {
                 <button className="btn-primary" onClick={handleGenerateRoadmap} disabled={generatingRoadmap}>
                   {generatingRoadmap ? "Generating roadmap..." : "🚀 Generate Roadmap with AI"}
                 </button>
+                
+                <div className={styles.divider}>OR</div>
+
+                <button className="btn-secondary" onClick={handleGenerateOverview}>
+                  ⚡ Quick Overview
+                </button>
               </div>
+              <p className={styles.overviewHint}>
+                Quick Overview skips the roadmap and directly writes one short, simple
+                notes file explaining what the domain is about.
+              </p>
             </div>
 
             <div className={styles.orDivider}>OR paste / upload an existing roadmap</div>
