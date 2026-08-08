@@ -92,7 +92,7 @@ func (s *Server) setupRoutes() {
 		AllowedOrigins:   []string{"*"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"*"},
-		AllowCredentials: true,
+		AllowCredentials: false,
 	})
 	s.router.Use(corsHandler.Handler)
 
