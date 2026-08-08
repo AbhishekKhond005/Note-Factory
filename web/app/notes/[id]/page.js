@@ -41,6 +41,10 @@ export default function NotesPage() {
     window.location.href = api.getDownloadUrl(id);
   };
 
+  const handleDownloadAll = () => {
+    window.location.href = api.getDownloadAllUrl(id);
+  };
+
   if (error) {
     return (
       <>
@@ -141,6 +145,11 @@ export default function NotesPage() {
             {notesData?.merged && (
               <button className="btn-secondary" onClick={handleDownload}>
                 ↓ Download Markdown
+              </button>
+            )}
+            {(notesData?.notes.length > 0) && (
+              <button className="btn-secondary" onClick={handleDownloadAll}>
+                📦 Download All (ZIP)
               </button>
             )}
           </div>

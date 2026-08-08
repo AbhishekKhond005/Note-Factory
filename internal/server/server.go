@@ -117,6 +117,7 @@ func (s *Server) setupRoutes() {
 		// Notes
 		r.Get("/notes/{jobID}", s.handleGetNotes)
 		r.Get("/notes/{jobID}/download", s.handleDownloadNotes)
+		r.Get("/notes/{jobID}/download-all", s.handleDownloadAllNotes)
 
 		// System
 		r.Get("/status", s.handleSystemStatus)

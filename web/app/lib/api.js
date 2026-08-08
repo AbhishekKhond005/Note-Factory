@@ -106,6 +106,10 @@ class ApiClient {
     return `${this.baseUrl}/api/notes/${jobId}/download`;
   }
 
+  getDownloadAllUrl(jobId) {
+    return `${this.baseUrl}/api/notes/${jobId}/download-all`;
+  }
+
   // ── System ───────────────────────────────────────────────────────
 
   async getSystemStatus() {

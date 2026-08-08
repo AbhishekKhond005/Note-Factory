@@ -1,6 +1,8 @@
 package server
 
 import (
+	"archive/zip"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -508,6 +510,82 @@ func (s *Server) handleDownloadNotes(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", filename))
 	w.Write(data)
+}
+
+// GET /api/notes/{jobID}/download-all — download all generated notes as a ZIP
+func (s *Server) handleDownloadAllNotes(w http.ResponseWriter, r *http.Request) {
+	jobID := chi.URLParam(r, "jobID")
+	job := s.jobManager.Get(jobID)
+	if job == nil {
+		respondError(w, http.StatusNotFound, "Job not found")
+		return
+	}
+
+	if job.Status != types.JobStatusComplete {
+		respondError(w, http.StatusBadRequest, fmt.Sprintf("Job is %s, not complete", job.Status))
+		return
+	}
+
+	// Collect all note files (deduped) plus the merged file if present
+	var files []string
+	seen := map[string]bool{}
+	add := func(p string) {
+		if p != "" && !seen[p] {
+			seen[p] = true
+			files = append(files, p)
+		}
+	}
+	for _, sc := range job.SubChapters {
+		add(sc.Output)
+	}
+	add(job.MergedFile)
+
+	if len(files) == 0 {
+		respondError(w, http.StatusBadRequest, "No note files available for this job")
+		return
+	}
+
+	// Build the ZIP in memory
+	zipBuf := new(bytes.Buffer)
+	zw := zip.NewWriter(zipBuf)
+
+	notesAbs, _ := filepath.Abs(s.notesDir)
+	for _, f := range files {
+		data, err := os.ReadFile(f)
+		if err != nil {
+			continue
+		}
+
+		// Use the path relative to the notes dir for clean archive entries,
+		// falling back to the file base name.
+		entryName := filepath.Base(f)
+		absFile := f
+		if !filepath.IsAbs(absFile) {
+			if abs, err := filepath.Abs(f); err == nil {
+				absFile = abs
+			}
+		}
+		if rel, err := filepath.Rel(notesAbs, absFile); err == nil && !strings.HasPrefix(rel, "..") {
+			entryName = rel
+		}
+		entryName = filepath.ToSlash(entryName)
+
+		fw, err := zw.Create(entryName)
+		if err != nil {
+			continue
+		}
+		fw.Write(data)
+	}
+
+	if err := zw.Close(); err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to create ZIP archive")
+		return
+	}
+
+	zipName := sanitizeFilename(job.ChapterName) + "-notes.zip"
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", zipName))
+	w.Write(zipBuf.Bytes())
 }
 
 // ── Background generation ───────────────────────────────────────────
