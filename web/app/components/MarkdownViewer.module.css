@@ -1,0 +1,151 @@
+.markdownBody {
+  color: var(--text-primary);
+  font-family: var(--font-inter);
+  line-height: 1.7;
+  font-size: 1.05rem;
+}
+
+.markdownBody h1,
+.markdownBody h2,
+.markdownBody h3,
+.markdownBody h4,
+.markdownBody h5,
+.markdownBody h6 {
+  margin-top: 2em;
+  margin-bottom: 1em;
+  font-weight: 700;
+  line-height: 1.25;
+  color: white;
+}
+
+.markdownBody h1 {
+  font-size: 2.25rem;
+  border-bottom: 1px solid var(--border-default);
+  padding-bottom: 0.3em;
+  margin-top: 0;
+}
+
+.markdownBody h2 {
+  font-size: 1.75rem;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 0.3em;
+}
+
+.markdownBody h3 {
+  font-size: 1.35rem;
+}
+
+.markdownBody h4 {
+  font-size: 1.15rem;
+}
+
+.markdownBody p {
+  margin-top: 0;
+  margin-bottom: 1.25em;
+}
+
+.markdownBody a {
+  color: var(--accent-secondary);
+  text-decoration: none;
+}
+
+.markdownBody a:hover {
+  text-decoration: underline;
+}
+
+.markdownBody ul,
+.markdownBody ol {
+  margin-top: 0;
+  margin-bottom: 1.25em;
+  padding-left: 2em;
+}
+
+.markdownBody li {
+  margin-bottom: 0.25em;
+}
+
+.markdownBody blockquote {
+  margin: 0 0 1.25em;
+  padding: 0 1em;
+  color: var(--text-secondary);
+  border-left: 0.25em solid var(--border-accent);
+  background: var(--bg-glass);
+  padding: 1em;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+}
+
+.markdownBody code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85em;
+  padding: 0.2em 0.4em;
+  margin: 0;
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+}
+
+.markdownBody pre {
+  margin-top: 0;
+  margin-bottom: 1.5em;
+  padding: 1.25em;
+  overflow: auto;
+  font-size: 0.9em;
+  line-height: 1.45;
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+}
+
+.markdownBody pre code {
+  padding: 0;
+  margin: 0;
+  font-size: 100%;
+  word-break: normal;
+  white-space: pre;
+  background: transparent;
+  border: 0;
+}
+
+.markdownBody table {
+  display: block;
+  width: 100%;
+  width: max-content;
+  max-width: 100%;
+  overflow: auto;
+  margin-top: 0;
+  margin-bottom: 1.5em;
+  border-spacing: 0;
+  border-collapse: collapse;
+}
+
+.markdownBody table th {
+  font-weight: 600;
+}
+
+.markdownBody table th,
+.markdownBody table td {
+  padding: 8px 13px;
+  border: 1px solid var(--border-default);
+}
+
+.markdownBody table tr {
+  background-color: var(--bg-card);
+  border-top: 1px solid var(--border-default);
+}
+
+.markdownBody table tr:nth-child(2n) {
+  background-color: var(--bg-tertiary);
+}
+
+.markdownBody img {
+  max-width: 100%;
+  box-sizing: content-box;
+  background-color: transparent;
+}
+
+.markdownBody hr {
+  height: 0.25em;
+  padding: 0;
+  margin: 24px 0;
+  background-color: var(--border-default);
+  border: 0;
+}

@@ -1,0 +1,105 @@
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: var(--space-2xl);
+}
+
+.header h1 {
+  font-size: 2.2rem;
+  margin-bottom: var(--space-xs);
+}
+
+.subtitle {
+  color: var(--text-secondary);
+  font-size: 1.1rem;
+}
+
+.emptyState {
+  padding: var(--space-4xl) var(--space-xl);
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.emptyState h3 {
+  color: var(--text-primary);
+  font-size: 1.5rem;
+  margin-bottom: var(--space-xs);
+}
+
+.jobList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.jobCard {
+  padding: var(--space-lg);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-xl);
+  transition: all var(--transition-fast);
+}
+
+.jobCard:hover {
+  border-color: var(--border-default);
+}
+
+.jobInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.jobTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.jobMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: 0.85rem;
+  color: var(--text-tertiary);
+}
+
+.jobProgress {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: 0.9rem;
+  margin-top: 4px;
+}
+
+.progressText {
+  color: var(--text-secondary);
+}
+
+.errorText {
+  color: var(--accent-error);
+}
+
+.statusWait {
+  color: var(--text-tertiary);
+  font-size: 0.9rem;
+  font-style: italic;
+}
+
+@media (max-width: 640px) {
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-md);
+  }
+  
+  .jobCard {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-lg);
+  }
+}

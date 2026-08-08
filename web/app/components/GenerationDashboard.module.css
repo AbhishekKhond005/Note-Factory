@@ -1,0 +1,120 @@
+.container {
+  animation: fadeIn 0.4s ease;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: var(--space-xl);
+}
+
+.header h2 {
+  font-size: 1.8rem;
+  margin-bottom: 4px;
+}
+
+.subtitle {
+  color: var(--text-secondary);
+  font-size: 1.1rem;
+}
+
+.overview {
+  padding: var(--space-xl);
+  margin-bottom: var(--space-2xl);
+}
+
+.statsRow {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-md);
+}
+
+.statBox {
+  display: flex;
+  flex-direction: column;
+}
+
+.statVal {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.statLabel {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
+.queueWarning {
+  margin-top: var(--space-md);
+  padding: var(--space-sm);
+  background: var(--accent-warning-dim);
+  color: var(--accent-warning);
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.list h3 {
+  margin-bottom: var(--space-md);
+}
+
+.items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.item {
+  padding: var(--space-md) var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.itemHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.itemName {
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.itemDetails {
+  font-size: 0.85rem;
+}
+
+.stepInfo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent-primary);
+}
+
+.errorText {
+  color: var(--accent-error);
+}
+
+.successText {
+  color: var(--accent-success);
+}
+
+.pendingText {
+  color: var(--text-tertiary);
+}
+
+@media (max-width: 768px) {
+  .statsRow {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-lg);
+  }
+}
