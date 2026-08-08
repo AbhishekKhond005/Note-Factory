@@ -6,6 +6,8 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"runtime"
+	"runtime/debug"
 	"strings"
 
 	"github.com/Note_Factory/internal/server"
@@ -13,6 +15,14 @@ import (
 
 func main() {
 	cfg := parseFlags()
+
+	// Resource guardrails for low-memory deployments (e.g. Render 0.1 CPU /
+	// 512MB): cap Go's heap so it GCs aggressively instead of ballooning,
+	// and cap threads so a big host CPU count doesn't create overhead.
+	debug.SetMemoryLimit(320 << 20) // 320 MiB soft heap limit
+	runtime.GOMAXPROCS(2)
+
+	log.Printf("Go: GOMAXPROCS=%d, soft heap limit=320MiB", runtime.GOMAXPROCS(0))
 
 	// Resolve opencode path
 	opencodePath := cfg.opencode
@@ -98,7 +108,7 @@ Flags:
   -roadmaps <dir>    Roadmap files directory (default: "roadmaps")
   -model <model>     OpenCode model override
   -opencode <path>   Path to opencode binary
-  -parallel <n>      Max parallel opencode processes (default: 4)
+  -parallel <n>      Max parallel opencode processes (default: 1; keep low on small instances)
   -use-docker        Run opencode in Docker containers to bypass device quotas
   -proxy <url>       Optional HTTP proxy for Docker containers
 `)

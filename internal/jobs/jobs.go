@@ -1,12 +1,17 @@
 package jobs
 
 import (
+	"sort"
 	"sync"
 	"time"
 
 	"github.com/Note_Factory/internal/types"
 	"github.com/google/uuid"
 )
+
+// maxStoredJobs bounds the in-memory job list. Jobs are tiny, but on a
+// long-running low-memory instance the list should not grow without bound.
+const maxStoredJobs = 100
 
 // Manager manages generation jobs in memory
 type Manager struct {
@@ -48,7 +53,38 @@ func (m *Manager) Create(roadmapTitle, chapterName string, subChapters []types.S
 	}
 
 	m.jobs[id] = job
+	m.pruneLocked()
 	return job
+}
+
+// pruneLocked removes the oldest finished jobs (complete/failed/cancelled)
+// once the list exceeds maxStoredJobs. Running and queued jobs are kept.
+// Caller must hold m.mu.
+func (m *Manager) pruneLocked() {
+	if len(m.jobs) <= maxStoredJobs {
+		return
+	}
+
+	var terminal []*types.Job
+	for _, j := range m.jobs {
+		if j.Status == types.JobStatusComplete || j.Status == types.JobStatusFailed || j.Status == types.JobStatusCancelled {
+			terminal = append(terminal, j)
+		}
+	}
+	if len(terminal) == 0 {
+		return
+	}
+
+	// Remove oldest terminal jobs until under the cap
+	sort.Slice(terminal, func(i, j int) bool {
+		return terminal[i].CreatedAt.Before(terminal[j].CreatedAt)
+	})
+	for _, j := range terminal {
+		if len(m.jobs) <= maxStoredJobs {
+			break
+		}
+		delete(m.jobs, j.ID)
+	}
 }
 
 // Get returns a job by ID (nil if not found)

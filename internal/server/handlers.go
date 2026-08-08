@@ -9,8 +9,10 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -183,6 +185,12 @@ func (s *Server) handleGenerateRoadmap(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Roadmap generation spawns an opencode process too — take a global slot
+	// so it never overlaps with a running chapter/overview generation
+	// (two opencode processes at once is the main OOM trigger).
+	s.jobSem <- struct{}{}
+	defer func() { <-s.jobSem }()
+
 	tree, err := agent.GenerateRoadmap(s.agentConfig, req.Topic, req.Prompt)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to generate roadmap: %v", err))
@@ -332,6 +340,15 @@ func (s *Server) handleGenerateOverview(w http.ResponseWriter, r *http.Request) 
 
 // runOverviewGeneration generates a single quick-overview notes file for a topic.
 func (s *Server) runOverviewGeneration(jobID, topic, userPrompt string) {
+	// Same global slot as chapter generation — overviews queue behind
+	// running jobs instead of spawning a second opencode process.
+	s.jobSem <- struct{}{}
+	defer func() { <-s.jobSem }()
+
+	if j := s.jobManager.Get(jobID); j != nil && j.Status == types.JobStatusCancelled {
+		return
+	}
+
 	s.jobManager.UpdateJobStatus(jobID, types.JobStatusRunning)
 	s.hub.Broadcast(types.ProgressEvent{
 		JobID:  jobID,
@@ -369,15 +386,18 @@ func (s *Server) runOverviewGeneration(jobID, topic, userPrompt string) {
 	})
 
 	content, err := agent.GenerateOverview(cfg, topic, userPrompt)
+
+	runtime.GC()
+
 	if err != nil {
-		s.jobManager.UpdateSubChapter(jobID, "overview", types.JobStatusFailed, "", err.Error(), "")
-		s.jobManager.SetError(jobID, err.Error())
+		s.jobManager.UpdateSubChapter(jobID, "overview", types.JobStatusFailed, "", truncate(err.Error(), 2000), "")
+		s.jobManager.SetError(jobID, truncate(err.Error(), 2000))
 		s.hub.Broadcast(types.ProgressEvent{
 			JobID:      jobID,
 			Type:       "error",
 			SubChapter: "overview",
 			Status:     types.JobStatusFailed,
-			Message:    err.Error(),
+			Message:    truncate(err.Error(), 2000),
 		})
 		return
 	}
@@ -591,6 +611,17 @@ func (s *Server) handleDownloadAllNotes(w http.ResponseWriter, r *http.Request) 
 // ── Background generation ───────────────────────────────────────────
 
 func (s *Server) runGeneration(jobID, roadmapTitle string, chapter types.Chapter, userPrompt string) {
+	// Wait for a global slot. At most MaxParallel opencode processes may
+	// exist system-wide; any additional queued chapter jobs wait here
+	// instead of spawning more processes (the #1 OOM cause on Render).
+	s.jobSem <- struct{}{}
+	defer func() { <-s.jobSem }()
+
+	// Bail out if the job was cancelled while queued
+	if j := s.jobManager.Get(jobID); j != nil && j.Status == types.JobStatusCancelled {
+		return
+	}
+
 	s.jobManager.UpdateJobStatus(jobID, types.JobStatusRunning)
 	s.hub.Broadcast(types.ProgressEvent{
 		JobID:  jobID,
@@ -644,14 +675,21 @@ func (s *Server) runGeneration(jobID, roadmapTitle string, chapter types.Chapter
 
 			path, err := agent.GenerateNotesForSubChapter(cfg, chapter.Name, sub.Name, sub.Topics, i+1, len(chapter.SubChapters), userPrompt)
 
+			// Let the opencode process fully exit and the OS reclaim its
+			// memory before the next sub-chapter starts, then ask Go's GC
+			// to collect anything left over. This keeps peak RSS low on
+			// memory-constrained instances.
+			runtime.GC()
+			time.Sleep(1500 * time.Millisecond)
+
 			if err != nil {
-				s.jobManager.UpdateSubChapter(jobID, sub.Name, types.JobStatusFailed, "", err.Error(), "")
+				s.jobManager.UpdateSubChapter(jobID, sub.Name, types.JobStatusFailed, "", truncate(err.Error(), 2000), "")
 				s.hub.Broadcast(types.ProgressEvent{
 					JobID:      jobID,
 					Type:       "error",
 					SubChapter: sub.Name,
 					Status:     types.JobStatusFailed,
-					Message:    err.Error(),
+					Message:    truncate(err.Error(), 2000),
 				})
 			} else {
 				s.jobManager.UpdateSubChapter(jobID, sub.Name, types.JobStatusComplete, "done", "", path)
@@ -715,4 +753,13 @@ func sanitizeFilename(name string) string {
 	name = strings.ReplaceAll(name, "/", "-")
 	name = strings.ReplaceAll(name, "\\", "-")
 	return name
+}
+
+// truncate caps a string's length so huge opencode stderr dumps (which can
+// be hundreds of KB) never get stored in job structs or broadcast over WS.
+func truncate(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "...(truncated)"
 }

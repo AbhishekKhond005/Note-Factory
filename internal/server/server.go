@@ -28,6 +28,13 @@ type Server struct {
 	port        string
 	notesDir    string
 	roadmapDir  string
+	// jobSem is a server-wide semaphore bounding the total number of
+	// concurrently running opencode processes across ALL jobs. This is the
+	// critical guard against OOM on low-memory deployments (Render 512MB):
+	// without it, each queued chapter job spawns its own opencode process
+	// and they stack up. With it, at most MaxParallel opencode processes
+	// exist system-wide, and extra jobs queue.
+	jobSem chan struct{}
 }
 
 // Config holds server configuration
@@ -54,7 +61,10 @@ func New(cfg *Config) *Server {
 		cfg.RoadmapDir = "roadmaps"
 	}
 	if cfg.MaxParallel <= 0 {
-		cfg.MaxParallel = 4
+		// Keep the default conservative: each opencode process can use
+		// hundreds of MB, and small deployments (Render 0.1 CPU / 512MB)
+		// can only safely host a single one at a time.
+		cfg.MaxParallel = 1
 	}
 
 	s := &Server{
@@ -73,6 +83,7 @@ func New(cfg *Config) *Server {
 		port:       cfg.Port,
 		notesDir:   cfg.NotesDir,
 		roadmapDir: cfg.RoadmapDir,
+		jobSem:     make(chan struct{}, cfg.MaxParallel),
 	}
 
 	s.setupRoutes()
@@ -85,7 +96,9 @@ func (s *Server) setupRoutes() {
 	s.router.Use(middleware.Recoverer)
 	s.router.Use(middleware.RequestID)
 	s.router.Use(middleware.RealIP)
-	s.router.Use(middleware.Timeout(60 * time.Second))
+	// Generous timeout: on 0.1 CPU instances a single AI roadmap generation
+	// can take minutes and must not be killed mid-request.
+	s.router.Use(middleware.Timeout(10 * time.Minute))
 
 	// CORS
 	corsHandler := cors.New(cors.Options{
@@ -159,7 +172,8 @@ func (s *Server) Run() error {
 	fmt.Printf("\n🚀 Note Factory API server running on http://localhost:%s\n", s.port)
 	fmt.Printf("   📡 WebSocket: ws://localhost:%s/api/ws\n", s.port)
 	fmt.Printf("   📁 Notes dir: %s\n", s.notesDir)
-	fmt.Printf("   📂 Roadmaps: %s\n\n", s.roadmapDir)
+	fmt.Printf("   📂 Roadmaps: %s\n", s.roadmapDir)
+	fmt.Printf("   ⚙️  Max parallel opencode processes: %d\n\n", s.agentConfig.MaxParallel)
 
 	<-done
 	log.Println("Server shutting down...")

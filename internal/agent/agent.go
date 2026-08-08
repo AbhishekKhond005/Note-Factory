@@ -248,6 +248,8 @@ func generateNotes(cfg *Config, workDir string, topicDesc string, finalPrompt st
 
 Follow the prompt below precisely to produce exceptional, textbook-quality notes. Use Java for all code examples.
 
+Keep the notes focused and concise: dense, useful content with no filler, no repetition, and no padded introductions or conclusions. Every sentence should teach something.
+
 IMPORTANT: Return the COMPLETE notes directly in your response. Do NOT write any files. Do NOT save to a file. Just respond with the full Markdown content.
 
 %s
@@ -306,6 +308,11 @@ func findAndReadOutputFile(workDir string) string {
 
 // runOpencode executes opencode with the given prompt and returns the output.
 func runOpencode(cfg *Config, workDir string, prompt string) (string, error) {
+	// Drop a lean config into the workdir: auto-compaction keeps the agent's
+	// in-memory context (and therefore its RSS) bounded on long generations,
+	// and autoupdate off avoids a version-check network call on startup.
+	prepareWorkDir(workDir)
+
 	// If UseDocker is strictly enforced, only use Docker
 	if cfg.UseDocker {
 		fmt.Println("  [Docker Mode] Executing in container...")
@@ -335,6 +342,51 @@ func runOpencode(cfg *Config, workDir string, prompt string) (string, error) {
 	return out, nil
 }
 
+// workDirConfig is written into every opencode workdir. Compaction bounds the
+// session context (and process memory) on long generations; autoupdate off
+// skips the startup version check that costs time on slow instances.
+const workDirConfig = `{
+  "$schema": "https://opencode.ai/config.json",
+  "autoupdate": false,
+  "compaction": { "auto": true, "tail_turns": 5 }
+}`
+
+func prepareWorkDir(workDir string) {
+	if workDir == "" {
+		return
+	}
+	_ = os.WriteFile(filepath.Join(workDir, "opencode.jsonc"), []byte(workDirConfig), 0644)
+}
+
+// maxOutputBytes caps how much opencode stdout/stderr we buffer in memory.
+// A runaway or misbehaving agent dump can otherwise blow up the Go heap.
+const maxOutputBytes = 16 << 20 // 16 MiB
+
+// limitedBuffer is an io.Writer that keeps at most maxOutputBytes and
+// silently drops the rest (recording whether truncation happened).
+type limitedBuffer struct {
+	buf       bytes.Buffer
+	limit     int
+	truncated bool
+}
+
+func (b *limitedBuffer) Write(p []byte) (int, error) {
+	remaining := b.limit - b.buf.Len()
+	if remaining > 0 {
+		if len(p) > remaining {
+			b.buf.Write(p[:remaining])
+			b.truncated = true
+		} else {
+			b.buf.Write(p)
+		}
+	} else {
+		b.truncated = true
+	}
+	return len(p), nil
+}
+
+func (b *limitedBuffer) String() string { return b.buf.String() }
+
 func executeNative(cfg *Config, workDir string, prompt string) (string, error) {
 	args := []string{"run", "--pure", "--dir", workDir}
 	if cfg.Model != "" {
@@ -344,12 +396,17 @@ func executeNative(cfg *Config, workDir string, prompt string) (string, error) {
 
 	cmd := exec.Command(cfg.OpencodePath, args...)
 
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
+	// NO_COLOR keeps the output free of ANSI escape noise (smaller buffers,
+	// less cleanup work); the default env is inherited otherwise.
+	cmd.Env = append(os.Environ(), "NO_COLOR=1")
+
+	stdout := &limitedBuffer{limit: maxOutputBytes}
+	stderr := &limitedBuffer{limit: maxOutputBytes}
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
 
 	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("opencode execution failed: %w\nstderr: %s", err, stderr.String())
+		return "", fmt.Errorf("opencode execution failed: %w\nstderr: %s", err, truncate(stderr.String(), 4000))
 	}
 
 	return stdout.String(), nil
@@ -383,16 +440,26 @@ func executeDocker(cfg *Config, workDir string, prompt string) (string, error) {
 	args = append(args, prompt)
 
 	cmd := exec.Command("docker", args...)
+	cmd.Env = append(os.Environ(), "NO_COLOR=1")
 
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
+	stdout := &limitedBuffer{limit: maxOutputBytes}
+	stderr := &limitedBuffer{limit: maxOutputBytes}
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
 
 	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("docker opencode execution failed: %w\nstderr: %s", err, stderr.String())
+		return "", fmt.Errorf("docker opencode execution failed: %w\nstderr: %s", err, truncate(stderr.String(), 4000))
 	}
 
 	return stdout.String(), nil
+}
+
+// truncate caps a string's length (used for error messages from subprocesses).
+func truncate(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "...(truncated)"
 }
 
 // cleanOutput removes ANSI escape codes and extracts content from code blocks.
