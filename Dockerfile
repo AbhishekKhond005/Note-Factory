@@ -34,7 +34,7 @@ COPY --from=builder /note-factory /app/note-factory
 RUN mkdir -p /app/notes /app/roadmaps
 
 # Copy any default roadmaps
-COPY Roadmap.txt /app/roadmaps/ 2>/dev/null || true
+COPY Roadmap.txt /app/roadmaps/
 
 # Environment
 ENV PORT=8080
