@@ -35,6 +35,15 @@ export default function Navbar() {
             <span className={styles.linkIcon}>📋</span>
             Jobs
           </Link>
+          <Link
+            href="/how-to-use"
+            className={`${styles.link} ${
+              pathname === "/how-to-use" ? styles.active : ""
+            }`}
+          >
+            <span className={styles.linkIcon}>❓</span>
+            How to Use
+          </Link>
         </div>
 
         <a
