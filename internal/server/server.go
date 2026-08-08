@@ -105,6 +105,7 @@ func (s *Server) setupRoutes() {
 		r.Get("/roadmaps", s.handleListRoadmaps)
 		r.Post("/roadmaps/parse", s.handleParseRoadmap)
 		r.Post("/roadmaps/upload", s.handleUploadRoadmap)
+		r.Post("/roadmaps/generate", s.handleGenerateRoadmap)
 
 		// Job operations
 		r.Post("/generate", s.handleGenerate)

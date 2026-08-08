@@ -22,12 +22,37 @@ export default function GeneratePage() {
   // Job state
   const [currentJob, setCurrentJob] = useState(null);
 
+  // AI roadmap state (topic + optional prompt)
+  const [topic, setTopic] = useState("");
+  const [topicPrompt, setTopicPrompt] = useState("");
+  const [generatingRoadmap, setGeneratingRoadmap] = useState(false);
+
   // Load predefined roadmaps
   useEffect(() => {
     api.listRoadmaps()
       .then(setRoadmaps)
       .catch(err => console.error("Failed to load roadmaps:", err));
   }, []);
+
+  const handleGenerateRoadmap = async () => {
+    if (!topic.trim()) {
+      setError("Please enter a topic for the AI roadmap.");
+      return;
+    }
+    setError("");
+    setGeneratingRoadmap(true);
+    try {
+      const res = await api.generateRoadmap(topic.trim(), topicPrompt);
+      setSelectedRoadmap(res.filename);
+      setParsedRoadmap(res.roadmap);
+      setRoadmapContent("");
+      setStep(2);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setGeneratingRoadmap(false);
+    }
+  };
 
   const handleParseText = async () => {
     if (!roadmapContent.trim()) {
@@ -86,6 +111,7 @@ export default function GeneratePage() {
         roadmapContent: roadmapContent || undefined,
         roadmapFile: selectedRoadmap || undefined,
         chapterIndex,
+        prompt: topicPrompt || undefined,
       });
       setCurrentJob(job);
       setStep(3);
@@ -122,44 +148,75 @@ export default function GeneratePage() {
 
         {/* Step 1: Upload */}
         {step === 1 && (
-          <div className={`glass-panel ${styles.uploadSection}`}>
-            <h2>Paste your Roadmap</h2>
-            <p>Paste a tree-formatted roadmap to get started.</p>
-            
-            <textarea
-              className="input-field"
-              placeholder="Paste roadmap here..."
-              value={roadmapContent}
-              onChange={(e) => setRoadmapContent(e.target.value)}
-            />
-            
-            <div className={styles.actions}>
-              <button className="btn-primary" onClick={handleParseText}>
-                Parse Roadmap
-              </button>
-              
-              <div className={styles.divider}>OR</div>
-              
-              <label className="btn-secondary">
-                Upload .txt file
-                <input type="file" accept=".txt,.md" hidden onChange={handleFileUpload} />
-              </label>
-            </div>
-            
-            {roadmaps.length > 0 && (
-              <div className={styles.predefinedList}>
-                <h3>Available Roadmaps:</h3>
-                <div className="card-grid">
-                  {roadmaps.map(rm => (
-                    <div key={rm.filename} className={`glass-panel ${styles.rmCard}`}>
-                      <h4>{rm.name}</h4>
-                      <p>{rm.filename}</p>
-                    </div>
-                  ))}
-                </div>
+          <>
+            <div className={`glass-panel ${styles.uploadSection}`}>
+              <h2>✨ Create a Roadmap from a Topic</h2>
+              <p>Enter a topic and optionally a prompt. AI builds a roadmap for you, saved in the project.</p>
+
+              <input
+                className="input-field"
+                placeholder="Topic, e.g. 'Python for Data Science'"
+                value={topic}
+                onChange={(e) => setTopic(e.target.value)}
+                style={{ marginBottom: "var(--space-md)" }}
+              />
+
+              <textarea
+                className="input-field"
+                placeholder="Optional prompt (priority guidance for the AI — applies to roadmap and notes)..."
+                value={topicPrompt}
+                onChange={(e) => setTopicPrompt(e.target.value)}
+                style={{ minHeight: "100px" }}
+              />
+
+              <div className={styles.actions}>
+                <button className="btn-primary" onClick={handleGenerateRoadmap} disabled={generatingRoadmap}>
+                  {generatingRoadmap ? "Generating roadmap..." : "🚀 Generate Roadmap with AI"}
+                </button>
               </div>
-            )}
-          </div>
+            </div>
+
+            <div className={styles.orDivider}>OR paste / upload an existing roadmap</div>
+
+            <div className={`glass-panel ${styles.uploadSection}`}>
+              <h2>Paste your Roadmap</h2>
+              <p>Paste a tree-formatted roadmap to get started.</p>
+              
+              <textarea
+                className="input-field"
+                placeholder="Paste roadmap here..."
+                value={roadmapContent}
+                onChange={(e) => setRoadmapContent(e.target.value)}
+              />
+              
+              <div className={styles.actions}>
+                <button className="btn-primary" onClick={handleParseText}>
+                  Parse Roadmap
+                </button>
+                
+                <div className={styles.divider}>OR</div>
+                
+                <label className="btn-secondary">
+                  Upload .txt file
+                  <input type="file" accept=".txt,.md" hidden onChange={handleFileUpload} />
+                </label>
+              </div>
+              
+              {roadmaps.length > 0 && (
+                <div className={styles.predefinedList}>
+                  <h3>Available Roadmaps:</h3>
+                  <div className="card-grid">
+                    {roadmaps.map(rm => (
+                      <div key={rm.filename} className={`glass-panel ${styles.rmCard}`}>
+                        <h4>{rm.name}</h4>
+                        <p>{rm.filename}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
         )}
 
         {/* Step 2: Pick */}

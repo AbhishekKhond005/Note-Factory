@@ -24,10 +24,16 @@ type parseRoadmapRequest struct {
 	Content string `json:"content"` // Raw roadmap text
 }
 
+type generateRoadmapRequest struct {
+	Topic  string `json:"topic"`
+	Prompt string `json:"prompt,omitempty"`
+}
+
 type generateRequest struct {
 	RoadmapContent string `json:"roadmapContent,omitempty"` // raw text if not using pre-loaded
 	RoadmapFile    string `json:"roadmapFile,omitempty"`    // filename of a pre-loaded roadmap
 	ChapterIndex   int    `json:"chapterIndex"`             // 0-based chapter index
+	Prompt         string `json:"prompt,omitempty"`         // optional user priority guidance
 }
 
 type errorResponse struct {
@@ -156,6 +162,48 @@ func (s *Server) handleParseRoadmap(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, rm)
 }
 
+// POST /api/roadmaps/generate — create a roadmap for a topic using AI
+func (s *Server) handleGenerateRoadmap(w http.ResponseWriter, r *http.Request) {
+	var req generateRoadmapRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "Invalid JSON body")
+		return
+	}
+
+	req.Topic = strings.TrimSpace(req.Topic)
+	if req.Topic == "" {
+		respondError(w, http.StatusBadRequest, "Topic is required")
+		return
+	}
+
+	tree, err := agent.GenerateRoadmap(s.agentConfig, req.Topic, req.Prompt)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to generate roadmap: %v", err))
+		return
+	}
+
+	// Save the generated roadmap inside the project's roadmaps directory
+	os.MkdirAll(s.roadmapDir, 0755)
+	filename := sanitizeFilename(req.Topic) + "-roadmap.txt"
+	content := fmt.Sprintf("# %s Roadmap\n\n```text\n%s\n```\n", req.Topic, tree)
+	if err := os.WriteFile(filepath.Join(s.roadmapDir, filename), []byte(content), 0644); err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to save generated roadmap")
+		return
+	}
+
+	rm, err := parser.Parse(content)
+	if err != nil {
+		respondError(w, http.StatusBadRequest, fmt.Sprintf("Generated roadmap could not be parsed: %v", err))
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"message":  "Roadmap generated and saved",
+		"filename": filename,
+		"roadmap":  rm,
+	})
+}
+
 // POST /api/roadmaps/upload — upload a roadmap file
 func (s *Server) handleUploadRoadmap(w http.ResponseWriter, r *http.Request) {
 	r.ParseMultipartForm(10 << 20) // 10 MB max
@@ -248,7 +296,7 @@ func (s *Server) handleGenerate(w http.ResponseWriter, r *http.Request) {
 	job := s.jobManager.Create(rm.Title, chapter.Name, chapter.SubChapters)
 
 	// Start generation in background
-	go s.runGeneration(job.ID, rm.Title, chapter)
+	go s.runGeneration(job.ID, rm.Title, chapter, req.Prompt)
 
 	respondJSON(w, http.StatusAccepted, job)
 }
@@ -360,7 +408,7 @@ func (s *Server) handleDownloadNotes(w http.ResponseWriter, r *http.Request) {
 
 // ── Background generation ───────────────────────────────────────────
 
-func (s *Server) runGeneration(jobID, roadmapTitle string, chapter types.Chapter) {
+func (s *Server) runGeneration(jobID, roadmapTitle string, chapter types.Chapter, userPrompt string) {
 	s.jobManager.UpdateJobStatus(jobID, types.JobStatusRunning)
 	s.hub.Broadcast(types.ProgressEvent{
 		JobID:  jobID,
@@ -412,7 +460,7 @@ func (s *Server) runGeneration(jobID, roadmapTitle string, chapter types.Chapter
 				Step:       "generating prompt",
 			})
 
-			path, err := agent.GenerateNotesForSubChapter(cfg, chapter.Name, sub.Name, sub.Topics, i+1, len(chapter.SubChapters))
+			path, err := agent.GenerateNotesForSubChapter(cfg, chapter.Name, sub.Name, sub.Topics, i+1, len(chapter.SubChapters), userPrompt)
 
 			if err != nil {
 				s.jobManager.UpdateSubChapter(jobID, sub.Name, types.JobStatusFailed, "", err.Error(), "")

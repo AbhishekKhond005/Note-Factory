@@ -49,6 +49,13 @@ class ApiClient {
     });
   }
 
+  async generateRoadmap(topic, prompt) {
+    return this.request("/api/roadmaps/generate", {
+      method: "POST",
+      body: JSON.stringify({ topic, prompt }),
+    });
+  }
+
   async uploadRoadmap(file) {
     const formData = new FormData();
     formData.append("roadmap", file);
@@ -63,10 +70,10 @@ class ApiClient {
 
   // ── Generation endpoints ─────────────────────────────────────────
 
-  async startGeneration({ roadmapContent, roadmapFile, chapterIndex }) {
+  async startGeneration({ roadmapContent, roadmapFile, chapterIndex, prompt }) {
     return this.request("/api/generate", {
       method: "POST",
-      body: JSON.stringify({ roadmapContent, roadmapFile, chapterIndex }),
+      body: JSON.stringify({ roadmapContent, roadmapFile, chapterIndex, prompt }),
     });
   }
 

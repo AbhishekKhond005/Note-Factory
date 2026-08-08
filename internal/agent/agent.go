@@ -29,14 +29,73 @@ type Config struct {
 	Proxy string
 }
 
+// GenerateRoadmap asks opencode to create a tree-structured study roadmap for a topic.
+// The optional userPrompt is treated as priority guidance.
+// Returns the roadmap tree text (code-fence stripped), ready to be saved & parsed.
+func GenerateRoadmap(cfg *Config, topic, userPrompt string) (string, error) {
+	workDir, err := os.MkdirTemp("", "note-factory-*")
+	if err != nil {
+		return "", fmt.Errorf("creating temp work dir: %w", err)
+	}
+	defer os.RemoveAll(workDir)
+
+	prompt := fmt.Sprintf(`You are an expert curriculum designer. Create a detailed, well-organized study roadmap for the topic below.
+
+The roadmap MUST use EXACTLY this tree format, with box-drawing characters and a root folder named after the topic:
+
+    <topic>-roadmap/
+    ├── 01-first-chapter/
+    │   ├── first-subtopic/
+    │   │   ├── specific point to learn
+    │   │   └── another specific point
+    │   └── second-subtopic/
+    │       └── ...
+    └── 02-second-chapter/
+        └── ...
+
+Strict format rules:
+1. The root folder line is the topic name followed by "-roadmap/".
+2. Top level (├── / └── at 0 indentation): 8 to 16 chapters, numbered 01, 02, 03, ... in a sensible learning order (foundations first).
+3. Second level (4-space indent under each chapter): 3 to 6 sub-topics.
+4. Third level (8-space indent): 3 to 5 concrete, specific learning points (short phrases, no trailing slashes).
+5. Do NOT nest deeper than 3 levels.
+6. Use "├── " for all but the last item at each level, and "└── " for the last item.
+7. No commentary, no explanations, no extra text — ONLY the tree.
+
+Topic: %s`, topic)
+
+	prompt = appendUserPrompt(prompt, userPrompt)
+
+	fmt.Printf("  Generating roadmap for %q...\n", topic)
+	out, err := runOpencode(cfg, workDir, prompt)
+	if err != nil {
+		return "", fmt.Errorf("generating roadmap: %w", err)
+	}
+
+	out = cleanOutput(out)
+	// The tree may be wrapped in a code block — strip it
+	out = extractFromCodeBlock(out)
+	return strings.TrimSpace(out), nil
+}
+
+// appendUserPrompt appends the user's priority guidance to a prompt when provided.
+func appendUserPrompt(prompt, userPrompt string) string {
+	userPrompt = strings.TrimSpace(userPrompt)
+	if userPrompt == "" {
+		return prompt
+	}
+	return prompt + fmt.Sprintf("\n\nPRIORITY USER GUIDANCE (this has the highest priority; follow it strictly wherever it conflicts with the instructions above):\n%s", userPrompt)
+}
+
 // GenerateNotesForSubChapter runs the agentic flow for a single sub-chapter.
 // Step 1: Ask opencode to generate a prompt/outline for the topic.
 // Step 2: Feed that prompt back to generate comprehensive notes.
 // order is the 1-based position of this sub-chapter in the roadmap
 // (sub-chapters are numbered in the order they appear in the roadmap),
 // and total is the total number of sub-chapters in the chapter.
+// userPrompt is optional priority guidance appended at every AI step.
 // Returns the path to the generated file.
-func GenerateNotesForSubChapter(cfg *Config, chapterName, subChapterName string, topics []string, order, total int) (string, error) {
+func GenerateNotesForSubChapter(cfg *Config, chapterName, subChapterName string, topics []string, order, total int, userPrompt string) (string, error) {
 	// Create output directory for this chapter
 	chapterDir := filepath.Join(cfg.OutputDir, sanitizeName(chapterName))
 	if err := os.MkdirAll(chapterDir, 0755); err != nil {
@@ -55,7 +114,7 @@ func GenerateNotesForSubChapter(cfg *Config, chapterName, subChapterName string,
 
 	// Step 1: Generate a prompt template
 	fmt.Printf("  [Step 1/2] Generating prompt template for %q...\n", subChapterName)
-	promptTemplate, err := generatePromptTemplate(cfg, workDir, topicDesc)
+	promptTemplate, err := generatePromptTemplate(cfg, workDir, topicDesc, userPrompt)
 	if err != nil {
 		return "", fmt.Errorf("generating prompt template: %w", err)
 	}
@@ -66,7 +125,7 @@ func GenerateNotesForSubChapter(cfg *Config, chapterName, subChapterName string,
 	fmt.Printf("  [Step 2/2] Generating notes for %q...\n", subChapterName)
 
 	finalPrompt := fillPromptTemplate(promptTemplate, topicDesc)
-	notesContent, err := generateNotes(cfg, workDir, topicDesc, finalPrompt)
+	notesContent, err := generateNotes(cfg, workDir, topicDesc, finalPrompt, userPrompt)
 	if err != nil {
 		return "", fmt.Errorf("generating notes: %w", err)
 	}
@@ -113,7 +172,7 @@ func buildTopicDescription(subChapterName string, topics []string) string {
 }
 
 // generatePromptTemplate asks opencode to create a detailed prompt template for the topic.
-func generatePromptTemplate(cfg *Config, workDir string, topicDesc string) (string, error) {
+func generatePromptTemplate(cfg *Config, workDir string, topicDesc string, userPrompt string) (string, error) {
 	prompt := fmt.Sprintf(`You are a curriculum designer creating a prompt template for a world-class textbook author.
 
 For the topic below, generate a detailed, structured prompt template that would produce exceptional textbook-quality notes. The notes should use Java as the programming language for all examples.
@@ -133,11 +192,12 @@ IMPORTANT: Return ONLY the prompt template itself, wrapped in a markdown code bl
 Topic:
 %s`, topicDesc)
 
+	prompt = appendUserPrompt(prompt, userPrompt)
 	return runOpencode(cfg, workDir, prompt)
 }
 
 // generateNotes uses the prompt template to generate comprehensive notes.
-func generateNotes(cfg *Config, workDir string, topicDesc string, finalPrompt string) (string, error) {
+func generateNotes(cfg *Config, workDir string, topicDesc string, finalPrompt string, userPrompt string) (string, error) {
 	fullPrompt := fmt.Sprintf(`You are a world-class textbook author writing comprehensive Java study notes.
 
 Follow the prompt below precisely to produce exceptional, textbook-quality notes. Use Java for all code examples.
@@ -149,6 +209,7 @@ IMPORTANT: Return the COMPLETE notes directly in your response. Do NOT write any
 Topic to cover:
 %s`, finalPrompt, topicDesc)
 
+	fullPrompt = appendUserPrompt(fullPrompt, userPrompt)
 	return runOpencode(cfg, workDir, fullPrompt)
 }
 
