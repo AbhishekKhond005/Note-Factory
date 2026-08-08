@@ -1,20 +1,23 @@
-FROM node:20-alpine
+FROM alpine:3.21
 
-# Create a non-root user for running opencode
+# Install dependencies
+RUN apk add --no-cache curl bash ca-certificates git
+
+# Install opencode via official install script
+RUN curl -fsSL https://opencode.ai/install | bash
+
+# Create a non-root user
 RUN addgroup -S opencode && adduser -S opencode -G opencode
-
-# Install opencode globally
-RUN npm install -g opencode@latest
 
 # Set up working directory
 WORKDIR /work
 RUN chown -R opencode:opencode /work
 
+# Make sure opencode is in PATH
+ENV PATH="/root/.opencode/bin:/home/opencode/.opencode/bin:${PATH}"
+
 # Switch to non-root user
 USER opencode
-
-# Ensure local bin is in PATH just in case
-ENV PATH="/home/opencode/.npm-global/bin:${PATH}"
 
 # Keep image ready
 ENTRYPOINT ["opencode"]

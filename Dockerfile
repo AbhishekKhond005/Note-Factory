@@ -25,8 +25,9 @@ WORKDIR /app
 # Install opencode and other dependencies
 RUN apk add --no-cache ca-certificates curl bash nodejs npm
 
-# Install opencode globally
-RUN npm install -g opencode@latest || echo "opencode install skipped"
+# Install opencode globally via official script
+RUN curl -fsSL https://opencode.ai/install | bash
+ENV PATH="/root/.opencode/bin:${PATH}"
 
 # Copy the binary
 COPY --from=builder /note-factory /app/note-factory
