@@ -34,10 +34,11 @@ type generateRoadmapRequest struct {
 }
 
 type generateRequest struct {
-	RoadmapContent string `json:"roadmapContent,omitempty"` // raw text if not using pre-loaded
-	RoadmapFile    string `json:"roadmapFile,omitempty"`    // filename of a pre-loaded roadmap
-	ChapterIndex   int    `json:"chapterIndex"`             // 0-based chapter index
-	Prompt         string `json:"prompt,omitempty"`         // optional user priority guidance
+	RoadmapContent    string `json:"roadmapContent,omitempty"` // raw text if not using pre-loaded
+	RoadmapFile       string `json:"roadmapFile,omitempty"`    // filename of a pre-loaded roadmap
+	ChapterIndex      int    `json:"chapterIndex"`             // 0-based chapter index
+	SubChapterIndexes []int  `json:"subChapterIndexes,omitempty"` // optional: generate only these sections
+	Prompt            string `json:"prompt,omitempty"`         // optional user priority guidance
 }
 
 type overviewRequest struct {
@@ -147,6 +148,47 @@ func (s *Server) handleListRoadmaps(w http.ResponseWriter, r *http.Request) {
 		roadmaps = []roadmapInfo{}
 	}
 	respondJSON(w, http.StatusOK, roadmaps)
+}
+
+// GET /api/roadmaps/{filename} — fetch and parse a specific roadmap file
+func (s *Server) handleGetRoadmap(w http.ResponseWriter, r *http.Request) {
+	filename := chi.URLParam(r, "filename")
+	if filename == "" {
+		respondError(w, http.StatusBadRequest, "filename is required")
+		return
+	}
+
+	// Try the roadmaps directory first, then the current directory
+	candidates := []string{
+		filepath.Join(s.roadmapDir, filename),
+		filename,
+	}
+	var content, foundPath string
+	for _, p := range candidates {
+		data, err := os.ReadFile(p)
+		if err == nil {
+			content = string(data)
+			foundPath = p
+			break
+		}
+	}
+	if content == "" {
+		respondError(w, http.StatusNotFound, fmt.Sprintf("Roadmap file %q not found", filename))
+		return
+	}
+
+	rm, err := parser.Parse(content)
+	if err != nil {
+		respondError(w, http.StatusBadRequest, fmt.Sprintf("Failed to parse roadmap: %v", err))
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"name":     strings.TrimSuffix(filename, filepath.Ext(filename)),
+		"filename": filename,
+		"path":     foundPath,
+		"roadmap":  rm,
+	})
 }
 
 // POST /api/roadmaps/parse — parse roadmap text
@@ -307,11 +349,28 @@ func (s *Server) handleGenerate(w http.ResponseWriter, r *http.Request) {
 
 	chapter := rm.Chapters[req.ChapterIndex]
 
+	// Section-level granularity: when subChapterIndexes are provided, only
+	// the selected sections are generated (each as its own document).
+	// Defaults to the whole chapter when omitted.
+	subChapters := chapter.SubChapters
+	if len(req.SubChapterIndexes) > 0 {
+		subChapters = nil
+		for _, idx := range req.SubChapterIndexes {
+			if idx < 0 || idx >= len(chapter.SubChapters) {
+				respondError(w, http.StatusBadRequest, fmt.Sprintf("Sub-chapter index %d out of range (0-%d)", idx, len(chapter.SubChapters)-1))
+				return
+			}
+			subChapters = append(subChapters, chapter.SubChapters[idx])
+		}
+	}
+	selectedChapter := chapter
+	selectedChapter.SubChapters = subChapters
+
 	// Create job
-	job := s.jobManager.Create(rm.Title, chapter.Name, chapter.SubChapters)
+	job := s.jobManager.Create(rm.Title, chapter.Name, subChapters)
 
 	// Start generation in background
-	go s.runGeneration(job.ID, rm.Title, chapter, req.Prompt)
+	go s.runGeneration(job.ID, rm.Title, selectedChapter, req.Prompt)
 
 	respondJSON(w, http.StatusAccepted, job)
 }

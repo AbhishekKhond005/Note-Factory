@@ -50,9 +50,12 @@ func Parse(input string) (*types.RoadMap, error) {
 			continue
 		}
 
-		// Strip trailing slash used for directories
-		name = strings.TrimRight(name, "/")
-		name = strings.TrimSpace(name)
+		// Normalize the name: strip directory slashes, numeric order
+		// prefixes ("01-"), and file extensions (".md") so tree-based
+		// roadmaps like SpringSecurity.txt (numbered, file-based) read
+		// cleanly. Order is preserved by the tree position itself; the
+		// generator re-numbers output files by roadmap order anyway.
+		name = cleanName(name)
 		if name == "" {
 			continue
 		}
@@ -136,4 +139,45 @@ func parseTreeLine(line string) (int, string) {
 
 	depth := markerStart / 4
 	return depth, name
+}
+
+// cleanName normalizes an item name from a tree roadmap:
+//   - trims whitespace and a trailing directory slash ("sub-topic/")
+//   - strips a leading numeric order prefix ("01-", "05_", "03."),
+//     since ordering is already captured by the tree position
+//   - strips a trailing file extension (".md", ".markdown", ".txt")
+func cleanName(name string) string {
+	name = strings.TrimSpace(strings.TrimRight(name, "/"))
+	if name == "" {
+		return ""
+	}
+
+	// Strip a leading numeric order prefix: digits followed by a separator.
+	// e.g. "01-java-basics" -> "java-basics"
+	if i := strings.IndexAny(name, "-_. "); i > 0 && isAllDigits(name[:i]) {
+		name = name[i+1:]
+	}
+
+	// Strip a trailing file extension.
+	for _, ext := range []string{".markdown", ".md", ".txt"} {
+		if strings.HasSuffix(strings.ToLower(name), ext) {
+			name = name[:len(name)-len(ext)]
+			break
+		}
+	}
+
+	return strings.TrimSpace(name)
+}
+
+// isAllDigits reports whether s is non-empty and consists only of digits.
+func isAllDigits(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
 }

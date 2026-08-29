@@ -35,7 +35,7 @@ export default function ChapterPicker({ chapters, onSelect }) {
                 className={`btn-primary ${styles.btn}`}
                 onClick={() => onSelect(index)}
               >
-                Generate Notes
+                Select Sections →
               </button>
             </div>
           );

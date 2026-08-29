@@ -3,18 +3,20 @@ import { useState, useEffect } from "react";
 import Navbar from "../components/Navbar";
 import RoadmapVisualizer from "../components/RoadmapVisualizer";
 import ChapterPicker from "../components/ChapterPicker";
+import SectionPicker from "../components/SectionPicker";
 import GenerationDashboard from "../components/GenerationDashboard";
 import api from "../lib/api";
 import styles from "./page.module.css";
 
 export default function GeneratePage() {
-  const [step, setStep] = useState(1); // 1: Upload, 2: Pick, 3: Generate
+  const [step, setStep] = useState(1); // 1: Upload, 2: Pick chapter, 3: Pick sections, 4: Generate
   
   // Roadmap state
   const [roadmaps, setRoadmaps] = useState([]);
   const [selectedRoadmap, setSelectedRoadmap] = useState(null);
   const [roadmapContent, setRoadmapContent] = useState("");
   const [parsedRoadmap, setParsedRoadmap] = useState(null);
+  const [selectedChapterIndex, setSelectedChapterIndex] = useState(null);
   
   // Error state
   const [error, setError] = useState("");
@@ -63,7 +65,7 @@ export default function GeneratePage() {
     try {
       const job = await api.generateOverview(topic.trim(), topicPrompt);
       setCurrentJob(job);
-      setStep(3);
+      setStep(4);
     } catch (err) {
       setError(err.message);
     }
@@ -87,18 +89,12 @@ export default function GeneratePage() {
 
   const handleSelectPredefined = async (filename) => {
     setError("");
-    setSelectedRoadmap(filename);
     try {
-      // In a real app we'd fetch the content or parse it directly.
-      // We can trigger generation with the filename directly.
-      // But we need the parsed roadmap to show the picker.
-      // As a workaround, we could have an API endpoint to get the parsed roadmap for a file.
-      // For now, let's just make the user upload or paste.
-      // Actually, wait, we don't have a GET /api/roadmaps/:id endpoint.
-      // Let's just stick to text pasting for now for custom ones, or maybe we can fetch the txt file from public?
-      // Our API serves files from /files/ if they are notes.
-      // Let's add a quick hack to parse a predefined roadmap by fetching its path if it's served.
-      // Or simply, since it's an MVP, let's just have a big text area for now.
+      const res = await api.getRoadmap(filename);
+      setSelectedRoadmap(res.filename);
+      setParsedRoadmap(res.roadmap);
+      setRoadmapContent("");
+      setStep(2);
     } catch (err) {
       setError(err.message);
     }
@@ -119,17 +115,24 @@ export default function GeneratePage() {
     }
   };
 
-  const handleGenerate = async (chapterIndex) => {
+  const handleSelectChapter = (chapterIndex) => {
+    setError("");
+    setSelectedChapterIndex(chapterIndex);
+    setStep(3);
+  };
+
+  const handleGenerateSections = async (subChapterIndexes) => {
     setError("");
     try {
       const job = await api.startGeneration({
         roadmapContent: roadmapContent || undefined,
         roadmapFile: selectedRoadmap || undefined,
-        chapterIndex,
+        chapterIndex: selectedChapterIndex,
+        subChapterIndexes,
         prompt: topicPrompt || undefined,
       });
       setCurrentJob(job);
-      setStep(3);
+      setStep(4);
     } catch (err) {
       setError(err.message);
     }
@@ -155,6 +158,11 @@ export default function GeneratePage() {
           <div className={styles.stepLine} />
           <div className={`${styles.step} ${step >= 3 ? styles.active : ""}`}>
             <div className={styles.stepNum}>3</div>
+            <span>Select Sections</span>
+          </div>
+          <div className={styles.stepLine} />
+          <div className={`${styles.step} ${step >= 4 ? styles.active : ""}`}>
+            <div className={styles.stepNum}>4</div>
             <span>Generate Notes</span>
           </div>
         </div>
@@ -232,9 +240,15 @@ export default function GeneratePage() {
                   <h3>Available Roadmaps:</h3>
                   <div className="card-grid">
                     {roadmaps.map(rm => (
-                      <div key={rm.filename} className={`glass-panel ${styles.rmCard}`}>
+                      <div
+                        key={rm.filename}
+                        className={`glass-panel ${styles.rmCard}`}
+                        onClick={() => handleSelectPredefined(rm.filename)}
+                        title={`Load ${rm.filename} and generate notes from it`}
+                      >
                         <h4>{rm.name}</h4>
                         <p>{rm.filename}</p>
+                        <span className={styles.rmHint}>Click to load →</span>
                       </div>
                     ))}
                   </div>
@@ -261,18 +275,27 @@ export default function GeneratePage() {
               <div className={styles.pickContent}>
                 <ChapterPicker 
                   chapters={parsedRoadmap.chapters} 
-                  onSelect={handleGenerate} 
+                  onSelect={handleSelectChapter} 
                 />
               </div>
             </div>
           </div>
         )}
 
-        {/* Step 3: Generate */}
-        {step === 3 && currentJob && (
+        {/* Step 3: Pick sections within the selected chapter */}
+        {step === 3 && parsedRoadmap && selectedChapterIndex !== null && (
+          <SectionPicker 
+            chapter={parsedRoadmap.chapters[selectedChapterIndex]}
+            onGenerate={handleGenerateSections}
+            onBack={() => setStep(2)}
+          />
+        )}
+
+        {/* Step 4: Generate */}
+        {step === 4 && currentJob && (
           <GenerationDashboard 
             initialJob={currentJob} 
-            onBack={() => setStep(2)} 
+            onBack={() => setStep(3)} 
           />
         )}
 

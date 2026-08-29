@@ -42,6 +42,10 @@ class ApiClient {
     return this.request("/api/roadmaps");
   }
 
+  async getRoadmap(filename) {
+    return this.request(`/api/roadmaps/${encodeURIComponent(filename)}`);
+  }
+
   async parseRoadmap(content) {
     return this.request("/api/roadmaps/parse", {
       method: "POST",
@@ -70,10 +74,10 @@ class ApiClient {
 
   // ── Generation endpoints ─────────────────────────────────────────
 
-  async startGeneration({ roadmapContent, roadmapFile, chapterIndex, prompt }) {
+  async startGeneration({ roadmapContent, roadmapFile, chapterIndex, subChapterIndexes, prompt }) {
     return this.request("/api/generate", {
       method: "POST",
-      body: JSON.stringify({ roadmapContent, roadmapFile, chapterIndex, prompt }),
+      body: JSON.stringify({ roadmapContent, roadmapFile, chapterIndex, subChapterIndexes, prompt }),
     });
   }
 

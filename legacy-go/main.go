@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
-	"runtime/debug"
 	"strings"
 
 	"github.com/Note_Factory/internal/server"
@@ -16,13 +15,9 @@ import (
 func main() {
 	cfg := parseFlags()
 
-	// Resource guardrails for low-memory deployments (e.g. Render 0.1 CPU /
-	// 512MB): cap Go's heap so it GCs aggressively instead of ballooning,
-	// and cap threads so a big host CPU count doesn't create overhead.
-	debug.SetMemoryLimit(320 << 20) // 320 MiB soft heap limit
-	runtime.GOMAXPROCS(2)
-
-	log.Printf("Go: GOMAXPROCS=%d, soft heap limit=320MiB", runtime.GOMAXPROCS(0))
+	// Running locally: use all available resources. (These guardrails existed
+	// for low-memory cloud deployments like Render 512MB — not needed here.)
+	log.Printf("Go: GOMAXPROCS=%d", runtime.GOMAXPROCS(0))
 
 	// Resolve opencode path
 	opencodePath := cfg.opencode
@@ -50,8 +45,9 @@ func main() {
 			log.Fatalf("Failed to initialize Docker runner: %v", err)
 		}
 	} else {
-		// Even if not forced, we check if docker is available to build the fallback image
-		initDockerImage() // ignore error, it's optional fallback
+		// Docker runner is opt-in (it's only useful as a quota/rate-limit
+		// workaround). Don't probe Docker or build images on plain local runs.
+		log.Printf("Docker runner disabled — running opencode natively (pass -use-docker to enable).")
 	}
 
 	// Start server
@@ -91,7 +87,7 @@ func parseFlags() *config {
 	flag.StringVar(&cfg.model, "model", "", "OpenCode model (e.g. 'anthropic/claude-sonnet-4-20250514')")
 	flag.StringVar(&cfg.opencode, "opencode", "", "Path to opencode binary (default: PATH lookup)")
 	flag.IntVar(&cfg.parallel, "parallel", 1, "Max parallel opencode processes (default: 1)")
-	flag.BoolVar(&cfg.useDocker, "use-docker", false, "Force opencode to run in Docker for all tasks (quota bypass)")
+	flag.BoolVar(&cfg.useDocker, "use-docker", false, "Run opencode inside a Docker container (optional workaround for quota/rate limits)")
 	flag.StringVar(&cfg.proxy, "proxy", "", "HTTP proxy for Docker containers (e.g., http://proxy:port)")
 
 	flag.Usage = func() {
@@ -108,8 +104,8 @@ Flags:
   -roadmaps <dir>    Roadmap files directory (default: "roadmaps")
   -model <model>     OpenCode model override
   -opencode <path>   Path to opencode binary
-  -parallel <n>      Max parallel opencode processes (default: 1; keep low on small instances)
-  -use-docker        Run opencode in Docker containers to bypass device quotas
+  -parallel <n>      Max parallel opencode processes (default: 1; e.g. 4 on a desktop)
+  -use-docker        Run opencode in Docker containers (optional; quota workaround)
   -proxy <url>       Optional HTTP proxy for Docker containers
 `)
 	}

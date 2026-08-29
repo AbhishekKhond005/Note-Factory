@@ -116,6 +116,7 @@ func (s *Server) setupRoutes() {
 	s.router.Route("/api", func(r chi.Router) {
 		// Roadmap operations
 		r.Get("/roadmaps", s.handleListRoadmaps)
+		r.Get("/roadmaps/{filename}", s.handleGetRoadmap)
 		r.Post("/roadmaps/parse", s.handleParseRoadmap)
 		r.Post("/roadmaps/upload", s.handleUploadRoadmap)
 		r.Post("/roadmaps/generate", s.handleGenerateRoadmap)
