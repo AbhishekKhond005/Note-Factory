@@ -1,0 +1,339 @@
+spring-security-roadmap/
+│
+├── 00-prerequisites/
+│   ├── 01-java-web-basics/
+│   │   ├── internet-vs-web.md
+│   │   ├── client-server.md
+│   │   ├── request-response.md
+│   │   ├── url-uri-urn.md
+│   │   └── ports-hosts-dns.md
+│   │
+│   ├── 02-http/
+│   │   ├── http-methods.md
+│   │   ├── status-codes.md
+│   │   ├── headers.md
+│   │   ├── request-body.md
+│   │   ├── content-types.md
+│   │   ├── cookies.md
+│   │   ├── redirects.md
+│   │   └── http-vs-https.md
+│   │
+│   └── 03-tls-basics/
+│       ├── encryption-vs-hashing.md
+│       ├── symmetric-vs-asymmetric.md
+│       ├── certificates.md
+│       ├── ca-trust.md
+│       └── tls-handshake-concept.md
+│
+├── 01-servlet-world/
+│   ├── 01-servlet-api.md
+│   ├── 02-servlet-container.md
+│   ├── 03-tomcat.md
+│   ├── 04-httpservlet-request-response.md
+│   ├── 05-servlet-lifecycle.md
+│   ├── 06-servlet-mapping.md
+│   ├── 07-filters.md
+│   ├── 08-filter-chain.md
+│   ├── 09-filter-vs-servlet.md
+│   └── 10-interceptors-vs-filters.md
+│
+├── 02-spring-web-foundation/
+│   ├── 01-spring-mvc.md
+│   ├── 02-dispatcher-servlet.md
+│   ├── 03-controller-handler-mapping.md
+│   ├── 04-handler-adapters.md
+│   ├── 05-message-converters.md
+│   ├── 06-rest-controller.md
+│   ├── 07-request-lifecycle.md
+│   ├── 08-spring-filter-registration.md
+│   └── 09-servlet-filter-spring-bean.md
+│
+├── 03-security-vocabulary/
+│   ├── 01-security-goals.md
+│   │   ├── confidentiality.md
+│   │   ├── integrity.md
+│   │   └── availability.md
+│   │
+│   ├── 02-identity.md
+│   │   ├── principal.md
+│   │   ├── identity.md
+│   │   ├── credential.md
+│   │   └── identity-provider.md
+│   │
+│   ├── 03-authentication.md
+│   ├── 04-authorization.md
+│   ├── 05-accountability.md
+│   ├── 06-role.md
+│   ├── 07-authority.md
+│   ├── 08-permission.md
+│   ├── 09-scope.md
+│   ├── 10-claim.md
+│   ├── 11-session.md
+│   ├── 12-token.md
+│   └── 13-trust-boundary.md
+│
+├── 04-spring-security-mental-model/
+│   ├── 01-what-spring-security-solves.md
+│   ├── 02-security-filter-chain.md
+│   ├── 03-filter-chain-proxy.md
+│   ├── 04-security-context.md
+│   ├── 05-security-context-holder.md
+│   ├── 06-authentication-object.md
+│   ├── 07-principal-and-authorities.md
+│   ├── 08-authentication-manager.md
+│   ├── 09-authentication-provider.md
+│   ├── 10-credentials.md
+│   ├── 11-authorization-manager.md
+│   ├── 12-authentication-vs-authorization-flow.md
+│   └── 13-end-to-end-request-flow.md
+│
+├── 05-basic-authentication/
+│   ├── 01-form-login.md
+│   ├── 02-username-password.md
+│   ├── 03-user-details.md
+│   ├── 04-user-details-service.md
+│   ├── 05-password-encoder.md
+│   ├── 06-password-hashing.md
+│   ├── 07-authentication-provider.md
+│   ├── 08-authentication-manager.md
+│   ├── 09-basic-auth.md
+│   ├── 10-http-basic-vs-form-login.md
+│   └── 11-authentication-failure.md
+│
+├── 06-session-security/
+│   ├── 01-why-sessions-exist.md
+│   ├── 02-session-id.md
+│   ├── 03-session-cookie.md
+│   ├── 04-stateful-authentication.md
+│   ├── 05-stateless-authentication.md
+│   ├── 06-security-context-persistence.md
+│   ├── 07-session-fixation.md
+│   ├── 08-concurrent-sessions.md
+│   ├── 09-session-timeout.md
+│   └── 10-spring-session-overview.md
+│
+├── 07-browser-security/
+│   ├── 01-same-origin-policy.md
+│   ├── 02-cors.md
+│   ├── 03-cookies-security-attributes.md
+│   │   ├── secure.md
+│   │   ├── httponly.md
+│   │   └── samesite.md
+│   │
+│   ├── 04-csrf.md
+│   ├── 05-clickjacking.md
+│   ├── 06-xss.md
+│   ├── 07-open-redirect.md
+│   ├── 08-security-headers.md
+│   └── 09-spring-security-exploit-protection.md
+│
+├── 08-authorization/
+│   ├── 01-request-authorization.md
+│   ├── 02-authenticated-vs-anonymous.md
+│   ├── 03-authorities.md
+│   ├── 04-roles.md
+│   ├── 05-role-prefix.md
+│   ├── 06-permissions.md
+│   ├── 07-request-matchers.md
+│   ├── 08-authorization-manager.md
+│   ├── 09-method-security.md
+│   ├── 10-preauthorize-postauthorize.md
+│   ├── 11-domain-object-authorization.md
+│   ├── 12-acl-concept.md
+│   └── 13-deny-by-default.md
+│
+├── 09-password-and-credential-security/
+│   ├── 01-password-storage.md
+│   ├── 02-hashing.md
+│   ├── 03-salt.md
+│   ├── 04-bcrypt.md
+│   ├── 05-pbkdf2.md
+│   ├── 06-scrypt.md
+│   ├── 07-argon2.md
+│   ├── 08-credential-stuffing.md
+│   ├── 09-brute-force.md
+│   ├── 10-account-lockout.md
+│   └── 11-password-reset-security.md
+│
+├── 10-token-foundation/
+│   ├── 01-why-tokens.md
+│   ├── 02-session-vs-token.md
+│   ├── 03-bearer-token.md
+│   ├── 04-access-token.md
+│   ├── 05-refresh-token.md
+│   ├── 06-token-expiration.md
+│   ├── 07-token-revocation.md
+│   ├── 08-token-storage.md
+│   └── 09-jwt-introduction.md
+│
+├── 11-jwt/
+│   ├── 01-jwt-structure.md
+│   ├── 02-header-payload-signature.md
+│   ├── 03-claims.md
+│   ├── 04-signing-vs-encryption.md
+│   ├── 05-jws.md
+│   ├── 06-jwe-concept.md
+│   ├── 07-rsa-and-ec-signatures.md
+│   ├── 08-key-rotation.md
+│   ├── 09-jwks.md
+│   ├── 10-issuer.md
+│   ├── 11-audience.md
+│   ├── 12-not-before-expiration.md
+│   └── 13-common-jwt-mistakes.md
+│
+├── 12-distributed-identity/
+│   ├── 01-why-centralized-identity.md
+│   ├── 02-identity-provider.md
+│   ├── 03-service-provider.md
+│   ├── 04-relying-party.md
+│   ├── 05-single-sign-on.md
+│   ├── 06-identity-federation.md
+│   ├── 07-delegated-authorization.md
+│   └── 08-authorization-server-vs-resource-server.md
+│
+├── 13-oauth2/
+│   ├── 01-problem-oauth-solves.md
+│   ├── 02-oauth-actors.md
+│   ├── 03-resource-owner.md
+│   ├── 04-client.md
+│   ├── 05-resource-server.md
+│   ├── 06-authorization-server.md
+│   ├── 07-scopes.md
+│   ├── 08-consent.md
+│   ├── 09-authorization-code.md
+│   ├── 10-redirect-uri.md
+│   ├── 11-state.md
+│   ├── 12-pkce.md
+│   ├── 13-client-credentials.md
+│   ├── 14-refresh-token-flow.md
+│   └── 15-why-oauth-is-not-authentication.md
+│
+├── 14-openid-connect/
+│   ├── 01-why-oidc-exists.md
+│   ├── 02-oauth-vs-oidc.md
+│   ├── 03-id-token.md
+│   ├── 04-userinfo.md
+│   ├── 05-discovery.md
+│   ├── 06-issuer.md
+│   ├── 07-nonce.md
+│   ├── 08-claims.md
+│   ├── 09-login-flow.md
+│   └── 10-sso-with-oidc.md
+│
+├── 15-directory-services/
+│   ├── 01-directory-service.md
+│   ├── 02-ldap.md
+│   ├── 03-ldap-entries.md
+│   ├── 04-dn-rdn.md
+│   ├── 05-attribute.md
+│   ├── 06-ldap-bind.md
+│   ├── 07-ldap-search.md
+│   ├── 08-active-directory.md
+│   ├── 09-ldap-vs-sql-database.md
+│   ├── 10-ldap-authentication-flow.md
+│   └── 11-spring-security-ldap.md
+│
+├── 16-enterprise-sso/
+│   ├── 01-sso-architecture.md
+│   ├── 02-saml-vocabulary.md
+│   ├── 03-idp-vs-sp.md
+│   ├── 04-saml-assertion.md
+│   ├── 05-saml-response.md
+│   ├── 06-saml-signatures.md
+│   ├── 07-saml-browser-sso.md
+│   ├── 08-oidc-vs-saml.md
+│   └── 09-spring-security-saml2.md
+│
+├── 17-spring-security-advanced-authentication/
+│   ├── 01-pre-authentication.md
+│   ├── 02-x509-authentication.md
+│   ├── 03-remember-me.md
+│   ├── 04-multi-factor-authentication.md
+│   ├── 05-passkeys-and-webauthn.md
+│   ├── 06-mfa-vs-2fa.md
+│   └── 07-custom-authentication-provider.md
+│
+├── 18-microservice-security/
+│   ├── 01-browser-to-gateway.md
+│   ├── 02-gateway-to-service.md
+│   ├── 03-service-to-service-auth.md
+│   ├── 04-jwt-between-services.md
+│   ├── 05-client-credentials.md
+│   ├── 06-token-propagation.md
+│   ├── 07-token-exchange.md
+│   ├── 08-service-identity.md
+│   ├── 09-mtls.md
+│   ├── 10-trust-boundaries.md
+│   ├── 11-api-gateway-security.md
+│   ├── 12-centralized-vs-decentralized-authz.md
+│   └── 13-policy-enforcement-point.md
+│
+├── 19-advanced-authorization/
+│   ├── 01-rbac.md
+│   ├── 02-abac.md
+│   ├── 03-rebac.md
+│   ├── 04-resource-based-authorization.md
+│   ├── 05-multi-tenant-authorization.md
+│   ├── 06-policy-engines.md
+│   ├── 07-external-policy-decision-point.md
+│   ├── 08-policy-enforcement-point.md
+│   ├── 09-policy-versioning.md
+│   └── 10-runtime-policy-updates.md
+│
+├── 20-observability-and-auditing/
+│   ├── 01-security-events.md
+│   ├── 02-authentication-events.md
+│   ├── 03-authorization-events.md
+│   ├── 04-audit-logs.md
+│   ├── 05-sensitive-data-in-logs.md
+│   ├── 06-security-monitoring.md
+│   └── 07-tracing-authenticated-requests.md
+│
+├── 21-testing-security/
+│   ├── 01-security-test-mindset.md
+│   ├── 02-unit-testing-security.md
+│   ├── 03-mock-authentication.md
+│   ├── 04-testing-authorization.md
+│   ├── 05-testing-csrf.md
+│   ├── 06-testing-jwt.md
+│   ├── 07-testing-oauth2.md
+│   ├── 08-integration-tests.md
+│   └── 09-security-regression-tests.md
+│
+├── 22-spring-security-configuration/
+│   ├── 01-securityfilterchain.md
+│   ├── 02-httpsecurity.md
+│   ├── 03-request-authorization-config.md
+│   ├── 04-form-login-config.md
+│   ├── 05-http-basic-config.md
+│   ├── 06-password-auth-config.md
+│   ├── 07-jwt-resource-server-config.md
+│   ├── 08-oauth2-login-config.md
+│   ├── 09-ldap-config.md
+│   ├── 10-method-security-config.md
+│   ├── 11-cors-config.md
+│   ├── 12-csrf-config.md
+│   ├── 13-security-headers-config.md
+│   └── 14-exception-handling-config.md
+│
+├── 23-real-world-use-cases/
+│   ├── 01-monolith-session-login.md
+│   ├── 02-rest-api-basic-auth.md
+│   ├── 03-rest-api-jwt.md
+│   ├── 04-spa-with-oidc.md
+│   ├── 05-microservices-with-oauth2.md
+│   ├── 06-service-to-service-client-credentials.md
+│   ├── 07-enterprise-ldap.md
+│   ├── 08-enterprise-saml-sso.md
+│   ├── 09-api-gateway.md
+│   ├── 10-multi-tenant-saas.md
+│   ├── 11-policy-driven-authorization.md
+│   └── 12-runtime-policy-reload.md
+│
+└── 24-final-projects/
+    ├── 01-secured-monolith/
+    ├── 02-jwt-resource-server/
+    ├── 03-oidc-login/
+    ├── 04-microservice-auth/
+    ├── 05-enterprise-sso/
+    └── 06-policy-driven-microservices/
