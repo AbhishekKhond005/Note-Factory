@@ -1,5 +1,6 @@
 package com.example.notefactory.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -22,11 +23,12 @@ public class GenerationTask {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "generation_job_id", nullable = false)
     @ToString.Exclude
+    @JsonIgnore
     private GenerationJob generationJob;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "sub_chapter_id")
-    private SubChapter subChapter;
+    @JoinColumn(name = "chapter_id")
+    private Chapter chapter;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -62,5 +64,6 @@ public class GenerationTask {
     private OffsetDateTime updatedAt;
     
     @OneToMany(mappedBy = "generationTask", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
     private List<GenerationAttempt> attempts;
 }

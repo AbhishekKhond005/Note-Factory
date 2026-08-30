@@ -91,3 +91,45 @@
   width: 100%;
   justify-content: center;
 }
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-md);
+}
+
+.controls {
+  padding: var(--space-md) var(--space-lg);
+  display: flex;
+}
+
+.selectAll {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.selectAllCount {
+  color: var(--text-secondary);
+  font-weight: 500;
+  font-size: 0.85rem;
+}
+
+.card {
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  border: 2px solid transparent;
+}
+
+.card.selected {
+  border-color: var(--accent-primary);
+  background: var(--accent-primary-dim);
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+}

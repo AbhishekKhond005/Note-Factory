@@ -1,5 +1,6 @@
 package com.example.notefactory.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -25,10 +26,12 @@ public class Roadmap {
     @Column(nullable = false)
     private RoadmapSource source;
 
+    @JsonIgnore
     @Column(name = "raw_text", columnDefinition = "TEXT")
     private String rawText;
 
-    @Column(name = "parsed_structure", columnDefinition = "JSONB")
+    @JsonIgnore
+    @Column(name = "parsed_structure", columnDefinition = "TEXT")
     private String parsedStructure;
 
     @CreationTimestamp
@@ -38,4 +41,7 @@ public class Roadmap {
     @OneToMany(mappedBy = "roadmap", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("orderIndex ASC")
     private List<Chapter> chapters;
+
+    @Column(name = "warning_message", columnDefinition = "TEXT")
+    private String warningMessage;
 }

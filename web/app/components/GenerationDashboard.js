@@ -1,51 +1,41 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import api from "../lib/api";
 import styles from "./GenerationDashboard.module.css";
 
 export default function GenerationDashboard({ initialJob, onBack }) {
-  const [job, setJob] = useState(initialJob);
+  const [job, setJob] = useState(initialJob || {});
   const [sysStatus, setSysStatus] = useState({ activeJobs: 0, maxParallel: 4 });
+  const jobId = job.id;
+
+  const refresh = useCallback(() => {
+    if (!jobId) return;
+    api.getJob(jobId).then(setJob).catch(console.error);
+    api.getSystemStatus().then(setSysStatus).catch(console.error);
+  }, [jobId]);
 
   useEffect(() => {
-    // Initial fetch to get latest status
-    api.getJob(job.id).then(setJob).catch(console.error);
-    api.getSystemStatus().then(setSysStatus).catch(console.error);
+    refresh();
 
-    // Subscribe to WebSocket events
-    api.connectWS((event) => {
-      if (event.jobId === job.id) {
-        setJob((prev) => {
-          if (!prev) return prev;
-          const next = { ...prev };
-          
-          if (event.type === "status" || event.type === "complete") {
-            next.status = event.status;
-          }
-          
-          if (event.subChapter) {
-            const scIdx = next.subChapters.findIndex(sc => sc.name === event.subChapter);
-            if (scIdx >= 0) {
-              next.subChapters[scIdx] = {
-                ...next.subChapters[scIdx],
-                status: event.status,
-                step: event.step || next.subChapters[scIdx].step,
-                error: event.message || next.subChapters[scIdx].error,
-              };
-            }
-          }
-          return next;
-        });
+    // Subscribe to live STOMP events for this job.
+    api.subscribeJob(jobId, (event) => {
+      // Progress events de-normalize surprisingly often for a single job
+      // (PromptCrafter, NoteWriter, Critic, Repair), so the simplest correct
+      // approach is to re-fetch the authoritative job view on each event.
+      refresh();
+
+      // Reflect the latest status immediately for snappier UI.
+      if (event.type === "complete") {
+        setJob((prev) => ({ ...prev, status: "complete" }));
+      } else if (event.type === "error") {
+        setJob((prev) => ({ ...prev, status: "failed" }));
       }
-      
-      // Update system status periodically on any event
-      api.getSystemStatus().then(setSysStatus).catch(console.error);
     });
 
     return () => {
-      api.disconnectWS();
+      api.unsubscribeJob(jobId);
     };
-  }, [job.id]);
+  }, [jobId, refresh]);
 
   const handleCancel = async () => {
     if (confirm("Are you sure you want to cancel this generation?")) {
@@ -54,13 +44,14 @@ export default function GenerationDashboard({ initialJob, onBack }) {
     }
   };
 
-  if (!job) return null;
+  if (!job || !job.id) return null;
 
-  const total = job.subChapters.length;
-  const complete = job.subChapters.filter(sc => sc.status === "complete").length;
-  const failed = job.subChapters.filter(sc => sc.status === "failed").length;
-  const running = job.subChapters.filter(sc => sc.status === "running").length;
-  
+  const chapters = job.chapters || [];
+  const total = chapters.length;
+  const complete = chapters.filter((c) => c.status === "complete").length;
+  const failed = chapters.filter((c) => c.status === "failed").length;
+  const running = chapters.filter((c) => c.status === "running").length;
+
   const progressPct = total === 0 ? 0 : Math.round(((complete + failed) / total) * 100);
   const isDone = job.status === "complete" || job.status === "failed" || job.status === "cancelled";
 
@@ -69,7 +60,7 @@ export default function GenerationDashboard({ initialJob, onBack }) {
       <div className={styles.header}>
         <div>
           <h2>Generating Notes</h2>
-          <p className={styles.subtitle}>{job.chapterName}</p>
+          <p className={styles.subtitle}>{job.roadmapTitle || "Untitled Roadmap"}</p>
         </div>
         <div className={styles.actions}>
           {isDone ? (
@@ -107,43 +98,49 @@ export default function GenerationDashboard({ initialJob, onBack }) {
         <div className="progress-bar" style={{ marginTop: "var(--space-md)" }}>
           <div className="progress-bar-fill" style={{ width: `${progressPct}%` }} />
         </div>
-        
+
         {job.status === "running" && sysStatus.activeJobs >= sysStatus.maxParallel && running < sysStatus.maxParallel && (
           <div className={styles.queueWarning}>
-            System is at capacity. Remaining items are queued and will start automatically.
+            System is at capacity. Remaining chapters are queued and will start automatically.
           </div>
         )}
       </div>
 
       <div className={styles.list}>
-        <h3>Sections ({total})</h3>
-        
+        <h3>Chapters ({total})</h3>
+
+        {total === 0 && (
+          <div className={`glass-panel ${styles.item}`}>
+            <div className={styles.itemDetails}>No chapters in this job.</div>
+          </div>
+        )}
+
         <div className={styles.items}>
-          {job.subChapters.map((sc, i) => (
+          {chapters.map((ch, i) => (
             <div key={i} className={`glass-panel ${styles.item}`}>
               <div className={styles.itemHeader}>
-                <span className={styles.itemName}>{sc.name}</span>
-                <StatusBadge status={sc.status} />
+                <span className={styles.itemName}>{ch.name || `Chapter ${i + 1}`}</span>
+                <StatusBadge status={ch.status} />
               </div>
-              
+
               <div className={styles.itemDetails}>
-                {sc.status === "running" && (
+                {ch.status === "running" && (
                   <div className={styles.stepInfo}>
                     <div className={`status-dot running`} />
-                    {sc.step || "Initializing..."}
+                    {ch.step || "Initializing..."}
                   </div>
                 )}
-                {sc.status === "failed" && (
+                {ch.status === "failed" && (
                   <div className={styles.errorText}>
-                    {sc.error || "Generation failed"}
+                    {ch.error || "Generation failed"}
                   </div>
                 )}
-                {sc.status === "complete" && (
+                {ch.status === "complete" && (
                   <div className={styles.successText}>
                     ✓ Generated successfully
                   </div>
                 )}
-                {sc.status === "pending" && (
+                {(ch.status === "pending" || ch.status === "queued") && (
                   <div className={styles.pendingText}>Waiting in queue...</div>
                 )}
               </div>

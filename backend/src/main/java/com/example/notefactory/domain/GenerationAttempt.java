@@ -1,5 +1,6 @@
 package com.example.notefactory.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -20,6 +21,7 @@ public class GenerationAttempt {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "generation_task_id", nullable = false)
     @ToString.Exclude
+    @JsonIgnore
     private GenerationTask generationTask;
 
     @Column(name = "provider")

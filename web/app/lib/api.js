@@ -1,10 +1,14 @@
+import { Client } from "@stomp/stompjs";
+import SockJS from "sockjs-client";
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
 class ApiClient {
   constructor() {
     this.baseUrl = API_BASE;
     this.ws = null;
-    this.wsListeners = new Map();
+    this.wsConnected = false;
+    this.wsSubscriptions = new Map(); // jobId -> { onEvent, subscription, retry }
   }
 
   async request(path, options = {}) {
@@ -38,14 +42,22 @@ class ApiClient {
 
   // ── Roadmap endpoints ────────────────────────────────────────────
 
+  /** List saved roadmaps (Roadmap entities with id + title + chapters). */
   async listRoadmaps() {
     return this.request("/api/roadmaps");
   }
 
-  async getRoadmap(filename) {
-    return this.request(`/api/roadmaps/${encodeURIComponent(filename)}`);
+  /** Load a roadmap by its id. */
+  async getRoadmap(id) {
+    return this.request(`/api/roadmaps/${encodeURIComponent(id)}`);
   }
 
+  /** List roadmap .txt files available on disk. */
+  async listRoadmapFiles() {
+    return this.request("/api/roadmaps/files");
+  }
+
+  /** Parse free-form roadmap text via the AI extraction agent -> Roadmap entity. */
   async parseRoadmap(content) {
     return this.request("/api/roadmaps/parse", {
       method: "POST",
@@ -53,6 +65,7 @@ class ApiClient {
     });
   }
 
+  /** Generate a roadmap from a topic via prompt 0 -> Roadmap entity. */
   async generateRoadmap(topic, prompt) {
     return this.request("/api/roadmaps/generate", {
       method: "POST",
@@ -60,6 +73,7 @@ class ApiClient {
     });
   }
 
+  /** Upload a roadmap file -> Roadmap entity. */
   async uploadRoadmap(file) {
     const formData = new FormData();
     formData.append("roadmap", file);
@@ -74,13 +88,24 @@ class ApiClient {
 
   // ── Generation endpoints ─────────────────────────────────────────
 
-  async startGeneration({ roadmapContent, roadmapFile, chapterIndex, subChapterIndexes, prompt }) {
+  /**
+   * Start a chapter-based generation job against a roadmap.
+   * Returns { jobId, warning? }.
+   */
+  async startGeneration({ roadmapId, roadmapContent, roadmapFile, chapterIndexes }) {
+    const body = {
+      roadmapId,
+      roadmapContent,
+      roadmapFile,
+      chapterIndexes,
+    };
     return this.request("/api/generate", {
       method: "POST",
-      body: JSON.stringify({ roadmapContent, roadmapFile, chapterIndex, subChapterIndexes, prompt }),
+      body: JSON.stringify(body),
     });
   }
 
+  /** Start a quick overview job for a topic. Returns { jobId }. */
   async generateOverview(topic, prompt) {
     return this.request("/api/generate/overview", {
       method: "POST",
@@ -124,47 +149,90 @@ class ApiClient {
     return this.request("/api/health");
   }
 
-  // ── WebSocket ────────────────────────────────────────────────────
+  // ── WebSocket (STOMP over SockJS) ────────────────────────────────
 
-  connectWS(onEvent) {
-    const wsUrl = this.baseUrl.replace(/^http/, "ws") + "/api/ws";
+  /** Ensure the single shared STOMP client is connected. */
+  _ensureWS() {
+    if (this.ws && this.wsConnected) return this.ws;
 
+    if (!this.ws) {
+      const wsUrl = this.baseUrl.replace(/^http/, "ws") + "/api/ws";
+      this.ws = new Client({
+        webSocketFactory: () => new SockJS(wsUrl),
+        reconnectDelay: 3000,
+        heartbeatIncoming: 10000,
+        heartbeatOutgoing: 10000,
+        onConnect: () => {
+          this.wsConnected = true;
+          console.log("[WS] STOMP connected");
+          // (Re)subscribe all registered job handlers
+          this.wsSubscriptions.forEach((entry, jobId) => this._subscribe(jobId, entry));
+        },
+        onStompError: (frame) => {
+          console.warn("[WS] STOMP error:", frame.headers && frame.headers.message);
+        },
+      });
+      this.ws.activate();
+    }
+    return this.ws;
+  }
+
+  _subscribe(jobId, entry) {
+    if (!this.ws || !this.wsConnected) return;
     try {
-      this.ws = new WebSocket(wsUrl);
-
-      this.ws.onopen = () => {
-        console.log("[WS] Connected");
-      };
-
-      this.ws.onmessage = (evt) => {
+      const sub = this.ws.subscribe(`/topic/jobs/${jobId}`, (message) => {
         try {
-          const event = JSON.parse(evt.data);
-          onEvent(event);
+          entry.onEvent(JSON.parse(message.body));
         } catch (e) {
           console.warn("[WS] Failed to parse message:", e);
         }
-      };
-
-      this.ws.onerror = (err) => {
-        console.warn("[WS] Error:", err);
-      };
-
-      this.ws.onclose = () => {
-        console.log("[WS] Disconnected, reconnecting in 3s...");
-        setTimeout(() => this.connectWS(onEvent), 3000);
-      };
-    } catch (err) {
-      console.warn("[WS] Connection failed:", err);
-      setTimeout(() => this.connectWS(onEvent), 5000);
+      });
+      entry.subscription = sub;
+    } catch (e) {
+      console.warn("[WS] Subscribe failed for", jobId, e);
     }
   }
 
+  /**
+   * Subscribe to live progress events for a specific job.
+   * events: { type, jobId, taskId, chapter, status, message }
+   */
+  subscribeJob(jobId, onEvent) {
+    this._ensureWS();
+    if (this.wsSubscriptions.has(jobId)) {
+      // ignore duplicate subscriptions for the same job
+      return;
+    }
+    const entry = { onEvent, subscription: null, retry: 0 };
+    this.wsSubscriptions.set(jobId, entry);
+    if (this.wsConnected) this._subscribe(jobId, entry);
+  }
+
+  /** Unsubscribe from a specific job's events. */
+  unsubscribeJob(jobId) {
+    const entry = this.wsSubscriptions.get(jobId);
+    if (entry && entry.subscription) {
+      try {
+        entry.subscription.unsubscribe();
+      } catch (e) {
+        console.warn("[WS] Unsubscribe failed for", jobId, e);
+      }
+    }
+    this.wsSubscriptions.delete(jobId);
+  }
+
+  /** Close the shared STOMP connection. */
   disconnectWS() {
     if (this.ws) {
-      this.ws.onclose = null; // prevent reconnection
-      this.ws.close();
+      try {
+        this.ws.deactivate();
+      } catch (e) {
+        console.warn("[WS] Deactivate error:", e);
+      }
       this.ws = null;
     }
+    this.wsConnected = false;
+    this.wsSubscriptions.clear();
   }
 }
 

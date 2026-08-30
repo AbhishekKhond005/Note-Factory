@@ -1,9 +1,10 @@
 package com.example.notefactory.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 
@@ -18,6 +19,7 @@ public class SubChapter {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "chapter_id", nullable = false)
     @ToString.Exclude
@@ -29,7 +31,17 @@ public class SubChapter {
     @Column(name = "order_index", nullable = false)
     private Integer orderIndex;
 
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(columnDefinition = "JSONB")
-    private List<String> topics;
+    @Column(columnDefinition = "TEXT")
+    @JsonIgnore
+    private String topics;
+
+    /** Exposes topics as a JSON array for the frontend (roadmap visualizer/picker). */
+    @JsonProperty("topics")
+    public List<String> getTopicsList() {
+        if (topics == null || topics.isBlank()) return List.of();
+        return Arrays.stream(topics.split(",\\s*"))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .toList();
+    }
 }

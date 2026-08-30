@@ -1,5 +1,6 @@
 package com.example.notefactory.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -21,6 +22,7 @@ public class GenerationJob {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "roadmap_id", nullable = false)
+    @JsonIgnore
     private Roadmap roadmap;
 
     @Enumerated(EnumType.STRING)
@@ -39,5 +41,6 @@ public class GenerationJob {
     private OffsetDateTime updatedAt;
 
     @OneToMany(mappedBy = "generationJob", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
     private List<GenerationTask> tasks;
 }

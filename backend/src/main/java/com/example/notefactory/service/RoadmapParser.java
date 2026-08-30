@@ -71,7 +71,7 @@ public class RoadmapParser {
                     currentSubChapter = new SubChapter();
                     currentSubChapter.setName(name);
                     currentSubChapter.setOrderIndex(currentChapter.getSubChapters().size());
-                    currentSubChapter.setTopics(new ArrayList<>());
+                    currentSubChapter.setTopics("");
                     currentSubChapter.setChapter(currentChapter);
                     currentChapter.getSubChapters().add(currentSubChapter);
                     break;
@@ -79,7 +79,8 @@ public class RoadmapParser {
                     if (currentSubChapter == null) {
                         throw new IllegalArgumentException("Line " + (i + 1) + ": topic '" + name + "' found before any sub-chapter");
                     }
-                    currentSubChapter.getTopics().add(name);
+                    String existing = currentSubChapter.getTopics();
+                    currentSubChapter.setTopics(existing == null || existing.isEmpty() ? name : existing + ", " + name);
                     break;
                 default:
                     throw new IllegalArgumentException("Line " + (i + 1) + ": nesting depth " + parsedLine.depth + " exceeds maximum depth of " + MAX_DEPTH);

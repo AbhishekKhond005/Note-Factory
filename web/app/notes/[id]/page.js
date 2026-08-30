@@ -109,7 +109,7 @@ export default function NotesPage() {
         <aside className={styles.sidebar}>
           <div className={styles.sidebarHeader}>
             <Link href="/jobs" className={styles.backLink}>← Back</Link>
-            <h3>{job.chapterName}</h3>
+            <h3>{job.roadmapTitle || "Untitled Roadmap"}</h3>
             <p className={styles.meta}>{job.roadmapTitle}</p>
           </div>
 
@@ -141,7 +141,7 @@ export default function NotesPage() {
         {/* Main Content */}
         <main className={styles.main}>
           <div className={styles.topbar}>
-            <h2>{activeTab === "merged" ? "Complete Chapter Notes" : activeTab}</h2>
+            <h2>{activeTab === "merged" ? "Merged Notes" : activeTab}</h2>
             {notesData?.merged && (
               <button className="btn-secondary" onClick={handleDownload}>
                 ↓ Download Markdown
